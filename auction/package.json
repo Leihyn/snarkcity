@@ -1,0 +1,13 @@
+{
+  "name": "@snarkcity/auction",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sealed-bid uniform-price auction, bid memo format and allocation fingerprint for SnarkCity",
+  "scripts": {
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=23.6"
+  }
+}
