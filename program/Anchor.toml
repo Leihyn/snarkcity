@@ -7,6 +7,9 @@ skip-lint = false
 [programs.localnet]
 snark_claim = "WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu"
 
+[programs.devnet]
+snark_claim = "WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu"
+
 [registry]
 url = "https://api.apr.dev"
 
