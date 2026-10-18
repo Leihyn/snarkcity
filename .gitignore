@@ -1,0 +1,12 @@
+# Wallet data, keys and bid secrets never go in the repo
+wallets/
+*.secret
+*_secret.txt
+.env
+.env.*
+
+# Build output
+node_modules/
+target/
+dist/
+.DS_Store
