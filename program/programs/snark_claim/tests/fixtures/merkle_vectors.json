@@ -1,0 +1,58 @@
+{
+  "root": "c47f0d94194a52d4b8502f64eff20eb525d8c11bc03b1ff80b7d5e50d7dc55a4",
+  "claims": [
+    {
+      "claim_pubkey": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "salt": "000306090c0f1215181b1e2124272a2d",
+      "commitment": "9ed08610e0861106e3f1314c50f2f23aa32667f1ad8e50614f8776baf1a3f3df",
+      "tokens": "1000007",
+      "proof": [
+        "ba44d15f9751964ff4477fadafb51d294a4b327fcd21aff5c85114fe3e7851a2",
+        "82a0cfbc0add0a9f925acccf1ed01fb80887b402d7ed34f2f17eb2253ba00c89",
+        "556ce4e49279376d3c5fb759fe3f4824f8ba2abdbce5dacddd368c3030a4a533"
+      ]
+    },
+    {
+      "claim_pubkey": "1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e",
+      "salt": "070a0d101316191c1f2225282b2e3134",
+      "commitment": "d85630780c36f515014ce5707e97decba5ea052c56b2ff29e0f48ff0ade8e31e",
+      "tokens": "2000007",
+      "proof": [
+        "1221426ea74de8514dabf64e3e9200296d19f7d31891eee825a2b2e9c3cc72e6",
+        "82a0cfbc0add0a9f925acccf1ed01fb80887b402d7ed34f2f17eb2253ba00c89",
+        "556ce4e49279376d3c5fb759fe3f4824f8ba2abdbce5dacddd368c3030a4a533"
+      ]
+    },
+    {
+      "claim_pubkey": "3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d",
+      "salt": "0e1114171a1d202326292c2f3235383b",
+      "commitment": "5eb196211e861b623c0c98fbf7e7a35501c462180dd37a9703798815750b755d",
+      "tokens": "3000007",
+      "proof": [
+        "4ebbf841aaf999b10b97fb1e55bbf2f54df5af16f5a73d4a01dc621627c088db",
+        "7537f3296a28daca08a0da8aac10c731a8c4a8d0c4bbe0c78b2ba347e4f10986",
+        "556ce4e49279376d3c5fb759fe3f4824f8ba2abdbce5dacddd368c3030a4a533"
+      ]
+    },
+    {
+      "claim_pubkey": "5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c",
+      "salt": "15181b1e2124272a2d303336393c3f42",
+      "commitment": "1081c582b0211dace2ff91a4342747cc740e3197c803e5eaa0843641a9502577",
+      "tokens": "4000007",
+      "proof": [
+        "fb69e40a051fdebe8c717330479dc7d9068e91067fdf14e105e067d0d65ea7dc",
+        "7537f3296a28daca08a0da8aac10c731a8c4a8d0c4bbe0c78b2ba347e4f10986",
+        "556ce4e49279376d3c5fb759fe3f4824f8ba2abdbce5dacddd368c3030a4a533"
+      ]
+    },
+    {
+      "claim_pubkey": "7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b",
+      "salt": "1c1f2225282b2e3134373a3d40434649",
+      "commitment": "4b42691552685da67cf991fad65d3185c28c01a69449c6037d0b45058c721854",
+      "tokens": "5000007",
+      "proof": [
+        "e52dfe03864e43551f740c9214923ee1dedd4755f894e5e55f3999b8c5be62f1"
+      ]
+    }
+  ]
+}

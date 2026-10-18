@@ -1,0 +1,18 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+snark_claim = "WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "anchor build --no-idl -- --tools-version v1.52 && cd programs/snark_claim && cargo test --test merkle_vectors && SBF_OUT_DIR=$PWD/../../target/deploy cargo test --features test-sbf --test claim_flow"
