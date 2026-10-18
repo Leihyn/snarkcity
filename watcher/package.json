@@ -1,0 +1,13 @@
+{
+  "name": "@snarkcity/watcher",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Reads SnarkCity bids from a zcash-devtool wallet and settles launches",
+  "scripts": {
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "engines": {
+    "node": ">=23.6"
+  }
+}
