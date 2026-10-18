@@ -64,6 +64,33 @@ export async function withdrawUnsold(p: anchor.Program, creator: PublicKey, mint
     .rpc();
 }
 
+export interface LaunchState {
+  creator: string;
+  mint: string;
+  supply: bigint;
+  root: string | null; // hex; null until the creator posts it
+  allocated: bigint;
+  claimed: bigint;
+  unsoldWithdrawn: boolean;
+}
+
+export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchId: bigint): Promise<LaunchState> {
+  // Account names from the IDL are camel-cased by the Anchor client.
+  const a = await (p.account as Record<string, { fetch(k: PublicKey): Promise<Record<string, unknown>> }>).launch.fetch(
+    launchPda(creator, launchId),
+  );
+  const root = Buffer.from(a.root as number[]);
+  return {
+    creator: (a.creator as PublicKey).toBase58(),
+    mint: (a.mint as PublicKey).toBase58(),
+    supply: BigInt(String(a.supply)),
+    root: root.equals(Buffer.alloc(32)) ? null : root.toString("hex"),
+    allocated: BigInt(String(a.allocated)),
+    claimed: BigInt(String(a.claimed)),
+    unsoldWithdrawn: Boolean(a.unsoldWithdrawn),
+  };
+}
+
 export interface Allocation {
   commitment: string; // hex
   tokens: bigint;

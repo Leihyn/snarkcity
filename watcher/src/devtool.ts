@@ -49,6 +49,21 @@ export async function initWatchOnly(w: Wallet, ufvk: string, birthday: number): 
   await devtool(w, ["init-fvk", "--name", "audit", "--fvk", ufvk, "--birthday", String(birthday)]);
 }
 
+// Chain height as of the wallet's last sync.
+export async function chainTip(w: Wallet): Promise<number> {
+  const out = await devtool(w, ["balance"]);
+  const m = /chain_tip_height: BlockHeight\(\s*(\d+)/.exec(out);
+  if (!m) throw new Error("balance output has no chain tip");
+  return Number(m[1]);
+}
+
+// The wallet's first unified address, where bids are sent.
+export async function defaultAddress(w: Wallet): Promise<string> {
+  const m = /utest1[0-9a-z]+|u1[0-9a-z]+/.exec(await devtool(w, ["list-addresses"]));
+  if (!m) throw new Error("wallet has no unified address");
+  return m[0];
+}
+
 // The single-receiver encodings inside an address, via `zcash-devtool inspect`.
 // A unified address lists each receiver as "- <Kind> (<encoding>)".
 export async function receivers(bin: string, address: string): Promise<string[]> {
