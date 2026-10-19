@@ -30,7 +30,9 @@ const wallet = { bin: launch.zcash.devtool, dir: launch.zcash.walletDir, identit
 await refresh(wallet);
 const tip = await chainTip(wallet);
 if (tip < endHeight + SETTLE_MARGIN) {
-  throw new Error(`not ready to settle: chain at ${tip}, window ends at ${endHeight}, settle from ${endHeight + SETTLE_MARGIN}`);
+  // An expected state, not a failure: say when to come back. Exit code 3 lets scripts wait and retry.
+  console.log(`${launch.name}: not ready to settle: chain at ${tip}, window ends at ${endHeight}, settle from ${endHeight + SETTLE_MARGIN}`);
+  process.exit(3);
 }
 
 const db = join(wallet.dir, "data.sqlite");
