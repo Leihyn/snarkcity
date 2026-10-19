@@ -50,6 +50,7 @@ export function readReceived(dbPath: string): ReceivedOutput[] {
 export interface SentOutput {
   txid: string;
   minedHeight: number | null; // null while pending
+  expiryHeight?: number | null; // last block it can be mined in; null or 0: never expires
   toAddress: string | null;
   valueZats: bigint;
   memo: string | null;
@@ -58,18 +59,25 @@ export interface SentOutput {
 // Payments this wallet made to other wallets. A watch-only wallet built from a
 // full viewing key sees these too, which lets the audit check refunds.
 const SENT_QUERY = `
-  SELECT txid, tx_mined_height, to_address, value, memo
-  FROM v_tx_outputs
-  WHERE from_account_uuid IS NOT NULL AND to_account_uuid IS NULL AND is_change = 0`;
+  SELECT o.txid, o.tx_mined_height, t.expiry_height, o.to_address, o.value, o.memo
+  FROM v_tx_outputs o JOIN transactions t ON t.id_tx = o.transaction_id
+  WHERE o.from_account_uuid IS NOT NULL AND o.to_account_uuid IS NULL AND o.is_change = 0`;
 
 export function readSent(dbPath: string): SentOutput[] {
   return queryRows(dbPath, SENT_QUERY).map((r) => ({
     txid: txidOf(r.txid),
     minedHeight: heightOf(r.tx_mined_height),
+    expiryHeight: heightOf(r.expiry_height),
     toAddress: typeof r.to_address === "string" ? r.to_address : null,
     valueZats: BigInt(numberLike(r.value)),
     memo: decodeMemo(r.memo instanceof Uint8Array ? r.memo : null),
   }));
+}
+
+// A transaction that was never mined and whose expiry height has passed can no
+// longer be mined (consensus rule), so whatever it paid was not paid.
+export function expired(s: SentOutput, tip: number): boolean {
+  return s.minedHeight === null && !!s.expiryHeight && tip >= s.expiryHeight;
 }
 
 type SqlValue = null | number | bigint | string | Uint8Array;

@@ -12,11 +12,13 @@ import { join } from "node:path";
 import { readReceived } from "../../watcher/src/bids.ts";
 import { chainTip, defaultAddress, refresh } from "../../watcher/src/devtool.ts";
 import { createLaunch, loadKeypair, program, PROGRAM_ID } from "../src/client.ts";
-import { expandHome, publicTerms, readLaunch, writeJson } from "../src/launch-file.ts";
+import { expandHome, launchProblems, publicTerms, readLaunch, writeJson } from "../src/launch-file.ts";
 
 const path = process.argv[2];
 const launch = readLaunch(path);
 if (launch.solana.launchId) throw new Error(`${launch.name} is already open (launch id ${launch.solana.launchId})`);
+const problems = launchProblems(launch);
+if (problems.length > 0) throw new Error(`launch file problems:\n  ${problems.join("\n  ")}`);
 
 const wallet = { bin: launch.zcash.devtool, dir: launch.zcash.walletDir };
 await refresh(wallet);

@@ -28,7 +28,7 @@ function plan(sent: SentOutput[] = []) {
     params,
   );
   const late = [{ id: `${tx("d")}:0`, valueZats: 50n, reason: "outside window" as const, refundTo: "ud" }];
-  return { s, plan: planPayouts(withLateBids(s.outcomes, late), s.price, sent) };
+  return { s, plan: planPayouts(withLateBids(s.outcomes, late), s.price, sent, 1_000) };
 }
 
 function parse(memo: string) {

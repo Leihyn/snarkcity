@@ -11,8 +11,9 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readReceived, readSent, scanBids } from "../src/bids.ts";
-import { pay, refresh } from "../src/devtool.ts";
-import { batches, planPayouts, toPaymentUri, withLateBids } from "../src/payouts.ts";
+import { chainTip, pay, refresh } from "../src/devtool.ts";
+import { batches, planPayouts, withLateBids } from "../src/payouts.ts";
+import { payBatch } from "../src/pay-batch.ts";
 import { settle } from "../src/settle.ts";
 
 const [configPath, command, flag] = process.argv.slice(2);
@@ -35,12 +36,19 @@ if (command === "scan") {
   console.log(`settled: ${scan.bids.length} bids, root ${s.root}, written to ${cfg.out}`);
 } else if (command === "payout") {
   const s = settlement();
-  const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db));
+  const tip = await chainTip(wallet);
+  const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db), tip);
   console.log(json({ toPay: plan.payouts.length, alreadyPaid: plan.alreadyPaid.length, noAddress: plan.noAddress }));
   for (const batch of batches(plan.payouts, PAYOUTS_PER_TX)) {
     for (const p of batch) console.log(`  ${p.zats} zats -> ${p.to.slice(0, 16)}…  ${p.memo.slice(0, 60)}`);
     if (flag === "--dry-run") continue;
-    console.log(`  paid in tx ${await pay(wallet, toPaymentUri(batch))}`);
+    const r = await payBatch(batch, {
+      pay: (uri) => pay(wallet, uri),
+      refresh: () => refresh(wallet),
+      chainTip: () => chainTip(wallet),
+      readSent: () => readSent(db),
+    });
+    console.log(`  ${r.status}${r.status === "paid" ? ` in tx ${r.txid}` : r.status === "failed" ? `: ${r.error}` : ""}`);
   }
 } else {
   console.error("command must be scan, settle or payout");

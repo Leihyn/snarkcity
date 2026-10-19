@@ -10,7 +10,8 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { join } from "node:path";
 import { readReceived, readSent, scanBids } from "../../watcher/src/bids.ts";
 import { chainTip, pay, refresh, shieldedBalance } from "../../watcher/src/devtool.ts";
-import { batches, feeEstimateZats, planPayouts, toPaymentUri, withLateBids } from "../../watcher/src/payouts.ts";
+import { batches, feeEstimateZats, planPayouts, withLateBids } from "../../watcher/src/payouts.ts";
+import { payBatch } from "../../watcher/src/pay-batch.ts";
 import { settle } from "../../watcher/src/settle.ts";
 import { closeWithoutSale, fetchLaunch, loadKeypair, program, setRoot, withdrawUnsold } from "../src/client.ts";
 import { expandHome, readLaunch, writeJson } from "../src/launch-file.ts";
@@ -21,10 +22,16 @@ const launch = readLaunch(path);
 const { startHeight, endHeight, identity } = launch.zcash;
 if (startHeight === undefined || endHeight === undefined || !launch.solana.launchId) throw new Error("launch is not open");
 
+// Settle only once the window's last blocks are a few blocks deep, so a chain
+// reorganisation cannot change which bids landed inside it.
+const SETTLE_MARGIN = 3;
+
 const wallet = { bin: launch.zcash.devtool, dir: launch.zcash.walletDir, identity };
 await refresh(wallet);
 const tip = await chainTip(wallet);
-if (tip <= endHeight) throw new Error(`bidding is still open: chain at ${tip}, window ends at ${endHeight}`);
+if (tip < endHeight + SETTLE_MARGIN) {
+  throw new Error(`not ready to settle: chain at ${tip}, window ends at ${endHeight}, settle from ${endHeight + SETTLE_MARGIN}`);
+}
 
 const db = join(wallet.dir, "data.sqlite");
 const scan = scanBids(readReceived(db), { startHeight, endHeight });
@@ -54,7 +61,7 @@ if (unsold > 0n && !after.unsoldWithdrawn) {
 }
 
 if (flag !== "--no-payout") {
-  const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db));
+  const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db), tip);
   const groups = batches(plan.payouts, 8);
   const need = plan.payouts.reduce((t, x) => t + x.zats, 0n) + feeEstimateZats(groups.map((g) => g.length));
   const { spendable, pending } = await shieldedBalance(wallet);
@@ -66,7 +73,18 @@ if (flag !== "--no-payout") {
       : `send the launch wallet a fee float of at least ${need - spendable - pending} zatoshis (no memo), then re-run`;
     console.log(`  payouts waiting: need ~${need} zatoshis, ${spendable} spendable, ${pending} confirming: ${advice}`);
   } else {
-    for (const batch of groups) console.log(`  paid ${batch.length} refunds/receipts in ${await pay(wallet, toPaymentUri(batch))}`);
+    const deps = {
+      pay: (uri: string) => pay(wallet, uri),
+      refresh: () => refresh(wallet),
+      chainTip: () => chainTip(wallet),
+      readSent: () => readSent(db),
+    };
+    for (const batch of groups) {
+      const r = await payBatch(batch, deps);
+      if (r.status === "paid") console.log(`  paid ${batch.length} refunds/receipts in ${r.txid}`);
+      else if (r.status === "in flight") console.log(`  ${batch.length} payouts sent but unconfirmed (connection dropped); they count once mined, or are re-paid by a later run if they expire`);
+      else console.log(`  ${batch.length} payouts not sent (${r.error}); nothing went out, re-run close-launch`);
+    }
   }
   console.log(`  payouts: ${plan.payouts.length} due, ${plan.alreadyPaid.length} already paid, ${plan.noAddress.length} owed with no address`);
 }

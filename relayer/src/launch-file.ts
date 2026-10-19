@@ -42,6 +42,20 @@ export interface PublicTerms {
   launchId: string;
 }
 
+// A bid can take several blocks to be mined after it is sent. With a short
+// window, a bid sent in time is mined after the window and refunded as late.
+export const MIN_BIDDING_BLOCKS = 20;
+
+export function launchProblems(l: LaunchFile): string[] {
+  const problems: string[] = [];
+  if (!Number.isInteger(l.zcash.biddingBlocks) || l.zcash.biddingBlocks < MIN_BIDDING_BLOCKS) {
+    problems.push(`biddingBlocks must be at least ${MIN_BIDDING_BLOCKS} (got ${l.zcash.biddingBlocks})`);
+  }
+  if (!(BigInt(l.sale.supply) > 0n)) problems.push("supply must be greater than zero");
+  if (!(BigInt(l.sale.reservePrice) >= 0n)) problems.push("reservePrice cannot be negative");
+  return problems;
+}
+
 export function readLaunch(path: string): LaunchFile {
   return JSON.parse(readFileSync(path, "utf8"));
 }

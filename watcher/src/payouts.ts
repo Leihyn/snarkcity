@@ -9,7 +9,7 @@
 
 import type { Price } from "../../auction/src/clearing.ts";
 import { assertMemoFits } from "../../auction/src/memo.ts";
-import type { Rejected, SentOutput } from "./bids.ts";
+import { expired, type Rejected, type SentOutput } from "./bids.ts";
 import type { BidOutcome } from "./settle.ts";
 
 export interface Payout {
@@ -36,10 +36,13 @@ export function receiptMemoBidId(memo: string): string | null {
   return RECEIPT_RE.exec(memo)?.[1] ?? null;
 }
 
-export function receiptedBids(sent: SentOutput[]): Set<string> {
+// Bids with a receipt that is mined or can still be mined. A receipt in an
+// expired, never-mined transaction does not count, so a re-run pays it again;
+// that cannot double-pay because the expired transaction can never land.
+export function receiptedBids(sent: SentOutput[], tip: number): Set<string> {
   const ids = new Set<string>();
   for (const s of sent) {
-    const id = s.memo ? receiptMemoBidId(s.memo) : null;
+    const id = s.memo && !expired(s, tip) ? receiptMemoBidId(s.memo) : null;
     if (id) ids.add(id);
   }
   return ids;
@@ -55,8 +58,8 @@ export function withLateBids(settled: BidOutcome[], rejected: Rejected[]): BidOu
   return [...settled, ...late];
 }
 
-export function planPayouts(all: BidOutcome[], price: Price | null, sent: SentOutput[]): PayoutPlan {
-  const done = receiptedBids(sent);
+export function planPayouts(all: BidOutcome[], price: Price | null, sent: SentOutput[], tip: number): PayoutPlan {
+  const done = receiptedBids(sent, tip);
   const plan: PayoutPlan = { payouts: [], alreadyPaid: [], noAddress: [] };
   for (const o of all) {
     if (done.has(o.bidId)) { plan.alreadyPaid.push(o.bidId); continue; }
