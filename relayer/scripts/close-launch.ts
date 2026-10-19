@@ -6,13 +6,13 @@
 //
 //   node scripts/close-launch.ts <launch.json> [--no-payout]
 
-import { Connection } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { join } from "node:path";
 import { readReceived, readSent, scanBids } from "../../watcher/src/bids.ts";
-import { chainTip, pay, refresh } from "../../watcher/src/devtool.ts";
-import { batches, planPayouts, toPaymentUri, withLateBids } from "../../watcher/src/payouts.ts";
+import { chainTip, pay, refresh, shieldedBalance } from "../../watcher/src/devtool.ts";
+import { batches, feeEstimateZats, planPayouts, toPaymentUri, withLateBids } from "../../watcher/src/payouts.ts";
 import { settle } from "../../watcher/src/settle.ts";
-import { fetchLaunch, loadKeypair, program, setRoot } from "../src/client.ts";
+import { closeWithoutSale, fetchLaunch, loadKeypair, program, setRoot, withdrawUnsold } from "../src/client.ts";
 import { expandHome, readLaunch, writeJson } from "../src/launch-file.ts";
 import { quoteZecToSol } from "../src/near.ts";
 
@@ -37,23 +37,43 @@ const creator = loadKeypair(expandHome(launch.solana.keypair));
 const p = program(connection, creator);
 const launchId = BigInt(launch.solana.launchId);
 const onChain = await fetchLaunch(p, creator.publicKey, launchId);
-if (s.root === null) {
-  console.log("  nothing sold: no root to post; bids are refunded below");
-} else if (onChain.root === null) {
+if (!onChain.finalized && s.root === null) {
+  console.log(`  nothing sold: closed on Solana without a sale: ${await closeWithoutSale(p, creator.publicKey, launchId)}`);
+} else if (!onChain.finalized && s.root !== null) {
   console.log(`  root ${s.root.slice(0, 16)}… posted on Solana: ${await setRoot(p, creator.publicKey, launchId, s.root, s.tokensSold)}`);
 } else if (onChain.root !== s.root) {
-  throw new Error(`root on Solana (${onChain.root}) differs from this settlement (${s.root})`);
+  throw new Error(`Solana (${onChain.noSale ? "closed without sale" : onChain.root}) differs from this settlement (${s.root})`);
 } else {
-  console.log(`  root already on Solana and matches`);
+  console.log(`  already final on Solana and matches (${onChain.noSale ? "no sale" : "root"})`);
+}
+const unsold = BigInt(launch.sale.supply) - s.tokensSold;
+const after = await fetchLaunch(p, creator.publicKey, launchId);
+if (unsold > 0n && !after.unsoldWithdrawn) {
+  const mint = new PublicKey(launch.solana.mint!);
+  console.log(`  ${unsold} unsold tokens returned to the creator: ${await withdrawUnsold(p, creator.publicKey, mint, launchId)}`);
 }
 
 if (flag !== "--no-payout") {
   const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db));
-  for (const batch of batches(plan.payouts, 8)) console.log(`  paid ${batch.length} refunds/receipts in ${await pay(wallet, toPaymentUri(batch))}`);
-  console.log(`  payouts: ${plan.payouts.length} new, ${plan.alreadyPaid.length} already paid, ${plan.noAddress.length} owed with no address`);
+  const groups = batches(plan.payouts, 8);
+  const need = plan.payouts.reduce((t, x) => t + x.zats, 0n) + feeEstimateZats(groups.map((g) => g.length));
+  const { spendable, pending } = await shieldedBalance(wallet);
+  if (plan.payouts.length > 0 && spendable < need) {
+    // Refunds are paid in full, so fees come from raised funds or, when little
+    // or nothing sold, from a fee float sent to the launch wallet (no memo).
+    const advice = spendable + pending >= need
+      ? "funds are still confirming (10 blocks for received payments); re-run shortly"
+      : `send the launch wallet a fee float of at least ${need - spendable - pending} zatoshis (no memo), then re-run`;
+    console.log(`  payouts waiting: need ~${need} zatoshis, ${spendable} spendable, ${pending} confirming: ${advice}`);
+  } else {
+    for (const batch of groups) console.log(`  paid ${batch.length} refunds/receipts in ${await pay(wallet, toPaymentUri(batch))}`);
+  }
+  console.log(`  payouts: ${plan.payouts.length} due, ${plan.alreadyPaid.length} already paid, ${plan.noAddress.length} owed with no address`);
 }
 
-try {
+if (s.raisedZats === 0n) {
+  console.log("  nothing raised: no swap to price");
+} else try {
   const q = await quoteZecToSol(s.raisedZats, creator.publicKey.toBase58());
   console.log(`  NEAR Intents live quote: ${q.zecIn} ZEC -> ${q.solOut} SOL ($${Number(q.usdOut).toFixed(2)}), ~${q.secondsEstimate}s`);
 } catch (e) {

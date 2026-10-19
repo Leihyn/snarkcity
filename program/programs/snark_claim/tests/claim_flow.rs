@@ -131,6 +131,15 @@ fn claim(env: &Env, launch_id: u64, v: &Vector, claimer: Pubkey, tokens: u64, re
     )
 }
 
+fn close_without_sale(env: &Env, launch_id: u64, signer: Pubkey) -> Instruction {
+    let (launch, _) = pdas(&env.creator, launch_id);
+    Instruction::new_with_bytes(
+        snark_claim::id(),
+        &snark_claim::instruction::CloseWithoutSale {}.data(),
+        snark_claim::accounts::SetRoot { creator: signer, launch }.to_account_metas(None),
+    )
+}
+
 fn withdraw_unsold(env: &Env, launch_id: u64) -> Instruction {
     let (launch, vault) = pdas(&env.creator, launch_id);
     Instruction::new_with_bytes(
@@ -210,6 +219,31 @@ fn claims_cannot_exceed_the_allocated_total() {
     }
     assert_eq!(env.run(claim(&env, 1, last, last.claimer, last.tokens, env.add_token_account(last.claimer))), custom(ERR_BASE + 4));
     assert!(env.launch_state(&launch).claimed <= allocated);
+}
+
+#[test]
+fn a_launch_with_no_sale_returns_the_whole_supply_and_allows_no_claims() {
+    let env = Env::new();
+    let (root, claims) = vectors();
+    let (launch, vault) = pdas(&env.creator, 9);
+    assert_eq!(env.run(create_launch(&env, 9)), ProgramResult::Success);
+    assert!(env.run(close_without_sale(&env, 9, env.relayer)).is_err(), "only the creator closes a launch");
+    assert_eq!(env.run(set_root(&env, 9, env.creator, snark_claim::NO_SALE_ROOT, 0)), custom(ERR_BASE + 2), "marker is not a root");
+    assert_eq!(env.run(close_without_sale(&env, 9, env.creator)), ProgramResult::Success);
+    assert_eq!(env.launch_state(&launch).allocated, 0);
+    let to = env.add_token_account(claims[0].claimer);
+    assert_eq!(env.run(claim(&env, 9, &claims[0], claims[0].claimer, claims[0].tokens, to)), custom(ERR_BASE + 8), "no sale");
+    assert_eq!(env.run(set_root(&env, 9, env.creator, root, 1)), custom(ERR_BASE + 1), "cannot post a root afterwards");
+    let before = env.token_balance(&env.creator_token);
+    assert_eq!(env.run(withdraw_unsold(&env, 9)), ProgramResult::Success);
+    assert_eq!(env.token_balance(&env.creator_token), before + SUPPLY);
+    assert_eq!(env.token_balance(&vault), 0);
+}
+
+#[test]
+fn a_launch_with_a_root_cannot_be_closed_as_no_sale() {
+    let (env, _, _, _) = launched(None);
+    assert_eq!(env.run(close_without_sale(&env, 1, env.creator)), custom(ERR_BASE + 1));
 }
 
 #[test]

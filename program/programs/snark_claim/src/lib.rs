@@ -16,6 +16,10 @@ pub mod merkle;
 
 declare_id!("WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu");
 
+/// Root posted when an auction closes with nothing sold. No leaf can hash to
+/// it, so nothing is claimable, and it unlocks the full supply for withdrawal.
+pub const NO_SALE_ROOT: [u8; 32] = [0xff; 32];
+
 #[program]
 pub mod snark_claim {
     use super::*;
@@ -43,10 +47,20 @@ pub mod snark_claim {
     pub fn set_root(ctx: Context<SetRoot>, root: [u8; 32], allocated: u64) -> Result<()> {
         let launch = &mut ctx.accounts.launch;
         require!(launch.root == [0; 32], ClaimError::RootAlreadySet);
-        require!(root != [0; 32], ClaimError::EmptyRoot);
+        require!(root != [0; 32] && root != NO_SALE_ROOT, ClaimError::EmptyRoot);
         require!(allocated <= launch.supply, ClaimError::OverAllocated);
         launch.root = root;
         launch.allocated = allocated;
+        Ok(())
+    }
+
+    /// For an auction where nothing sold: finalizes the launch with no
+    /// allocations so the creator can withdraw the whole supply.
+    pub fn close_without_sale(ctx: Context<SetRoot>) -> Result<()> {
+        let launch = &mut ctx.accounts.launch;
+        require!(launch.root == [0; 32], ClaimError::RootAlreadySet);
+        launch.root = NO_SALE_ROOT;
+        launch.allocated = 0;
         Ok(())
     }
 
@@ -59,6 +73,7 @@ pub mod snark_claim {
     ) -> Result<()> {
         let launch = &ctx.accounts.launch;
         require!(launch.root != [0; 32], ClaimError::RootNotSet);
+        require!(launch.root != NO_SALE_ROOT, ClaimError::NoSale);
         let expected = merkle::commitment(&ctx.accounts.claimer.key().to_bytes(), &salt);
         require!(expected == commitment, ClaimError::WrongClaimKey);
         let leaf = merkle::leaf(&commitment, tokens);
@@ -202,4 +217,7 @@ pub enum ClaimError {
     InvalidProof,
     #[msg("Unsold tokens were already withdrawn")]
     AlreadyWithdrawn,
+    // New variants go last so existing error codes keep their numbers.
+    #[msg("The launch closed without a sale; nothing is claimable")]
+    NoSale,
 }

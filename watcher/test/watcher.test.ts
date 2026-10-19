@@ -55,11 +55,12 @@ test("scanBids keeps only mined, in-window payments with a valid bid memo", () =
       o("d", 201, `SC1 BID c=${C1} p=8`),
       o("e", 150, "thanks for the coffee"),
       o("f", 150, null),
+      o("g", 50, null), // a fee float sent before the window: not a late bid
     ],
     { startHeight: 100, endHeight: 200 },
   );
   assert.deepEqual(scan.bids.map((b) => [b.txid, b.refundTo]), [["a:0", "utest1x"]]);
-  assert.deepEqual(scan.rejected.map((r) => r.reason), ["unmined", "outside window", "outside window", "no bid memo", "no bid memo"]);
+  assert.deepEqual(scan.rejected.map((r) => r.reason), ["unmined", "outside window", "outside window", "no bid memo", "no bid memo", "no bid memo"]);
 });
 
 test("settle produces claims that verify against the root, and refunds for the rest", () => {

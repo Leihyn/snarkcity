@@ -90,6 +90,13 @@ export function zatsToZec(zats: bigint): string {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
+// ZIP 317 fee: 5,000 zatoshis per logical action, at least 2. A conservative
+// upper estimate per batch: one action per output, plus change, plus up to as
+// many spends as outputs.
+export function feeEstimateZats(batchSizes: number[]): bigint {
+  return batchSizes.reduce((sum, n) => sum + 5_000n * BigInt(Math.max(2, 2 * n + 1)), 0n);
+}
+
 export function batches<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));

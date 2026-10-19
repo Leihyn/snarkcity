@@ -139,6 +139,37 @@
       ]
     },
     {
+      "name": "close_without_sale",
+      "docs": [
+        "For an auction where nothing sold: finalizes the launch with no",
+        "allocations so the creator can withdraw the whole supply."
+      ],
+      "discriminator": [
+        159,
+        135,
+        157,
+        230,
+        161,
+        220,
+        109,
+        2
+      ],
+      "accounts": [
+        {
+          "name": "creator",
+          "signer": true,
+          "relations": [
+            "launch"
+          ]
+        },
+        {
+          "name": "launch",
+          "writable": true
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_launch",
       "discriminator": [
         239,
@@ -399,6 +430,11 @@
       "code": 6007,
       "name": "AlreadyWithdrawn",
       "msg": "Unsold tokens were already withdrawn"
+    },
+    {
+      "code": 6008,
+      "name": "NoSale",
+      "msg": "The launch closed without a sale; nothing is claimable"
     }
   ],
   "types": [

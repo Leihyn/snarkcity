@@ -53,6 +53,10 @@ export async function setRoot(p: anchor.Program, creator: PublicKey, launchId: b
     .rpc();
 }
 
+export async function closeWithoutSale(p: anchor.Program, creator: PublicKey, launchId: bigint) {
+  return p.methods.closeWithoutSale().accountsPartial({ creator, launch: launchPda(creator, launchId) }).rpc();
+}
+
 export async function withdrawUnsold(p: anchor.Program, creator: PublicKey, mint: PublicKey, launchId: bigint) {
   const launch = launchPda(creator, launchId);
   return p.methods
@@ -68,11 +72,16 @@ export interface LaunchState {
   creator: string;
   mint: string;
   supply: bigint;
-  root: string | null; // hex; null until the creator posts it
+  root: string | null; // hex allocation root; null if not posted or no sale
+  noSale: boolean; // closed with nothing sold
+  finalized: boolean; // root posted or closed without sale
   allocated: bigint;
   claimed: bigint;
   unsoldWithdrawn: boolean;
 }
+
+// Must match NO_SALE_ROOT in the program.
+const NO_SALE_ROOT = Buffer.alloc(32, 0xff);
 
 export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchId: bigint): Promise<LaunchState> {
   // Account names from the IDL are camel-cased by the Anchor client.
@@ -80,11 +89,15 @@ export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchI
     launchPda(creator, launchId),
   );
   const root = Buffer.from(a.root as number[]);
+  const unset = root.equals(Buffer.alloc(32));
+  const noSale = root.equals(NO_SALE_ROOT);
   return {
     creator: (a.creator as PublicKey).toBase58(),
     mint: (a.mint as PublicKey).toBase58(),
     supply: BigInt(String(a.supply)),
-    root: root.equals(Buffer.alloc(32)) ? null : root.toString("hex"),
+    root: unset || noSale ? null : root.toString("hex"),
+    noSale,
+    finalized: !unset,
     allocated: BigInt(String(a.allocated)),
     claimed: BigInt(String(a.claimed)),
     unsoldWithdrawn: Boolean(a.unsoldWithdrawn),

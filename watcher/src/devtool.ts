@@ -57,6 +57,21 @@ export async function chainTip(w: Wallet): Promise<number> {
   return Number(m[1]);
 }
 
+// Shielded funds the wallet can spend now, and funds still waiting for
+// confirmations (zcash-devtool's default: 10 for notes received from others).
+export async function shieldedBalance(w: Wallet): Promise<{ spendable: bigint; pending: bigint }> {
+  const out = await devtool(w, ["balance"]);
+  let spendable = 0n;
+  let pending = 0n;
+  const pool = /(sapling|orchard|ironwood)_balance: Balance \{(.*?)\}/gs;
+  for (const [, , body] of out.matchAll(pool)) {
+    const field = (name: string) => BigInt(new RegExp(`${name}: Zatoshis\\(\\s*(\\d+)`).exec(body)?.[1] ?? "0");
+    spendable += field("spendable_value");
+    pending += field("value_pending_spendability") + field("change_pending_confirmation");
+  }
+  return { spendable, pending };
+}
+
 // The wallet's first unified address, where bids are sent.
 export async function defaultAddress(w: Wallet): Promise<string> {
   const m = /utest1[0-9a-z]+|u1[0-9a-z]+/.exec(await devtool(w, ["list-addresses"]));

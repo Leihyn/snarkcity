@@ -27,7 +27,9 @@ const report = await runAudit({
 });
 const allocatedMatches = onChain.allocated === report.tokensSold;
 const supplyMatches = onChain.supply === BigInt(terms.supply) && onChain.mint === terms.mint;
-const ok = report.ok && allocatedMatches && supplyMatches;
+// Not finalized means the creator has not yet posted a root or closed without
+// sale; a null root would otherwise look like "nothing sold".
+const ok = onChain.finalized && report.ok && allocatedMatches && supplyMatches;
 console.log(
   JSON.stringify(
     // `ok` goes last: report.ok covers only the Zcash side and must not overwrite it.

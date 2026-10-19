@@ -112,9 +112,11 @@ export function scanBids(outputs: ReceivedOutput[], window: Window): BidScan {
     const memo = o.memo === null ? null : parseBidMemo(o.memo);
     const reject = (reason: Rejected["reason"]) =>
       scan.rejected.push({ id, valueZats: o.valueZats, reason, ...(memo?.refundTo && { refundTo: memo.refundTo }) });
+    // A payment with no bid memo is not a bid at any height (a fee float, a
+    // tip); only a real bid that misses the window is owed a refund as late.
+    if (!memo) { reject("no bid memo"); continue; }
     if (o.minedHeight === null) { reject("unmined"); continue; }
     if (o.minedHeight < window.startHeight || o.minedHeight > window.endHeight) { reject("outside window"); continue; }
-    if (!memo) { reject("no bid memo"); continue; }
     scan.bids.push({ txid: id, amountZats: o.valueZats, minedHeight: o.minedHeight, ...memo });
   }
   return scan;
