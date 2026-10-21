@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SnarkCity site preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  html, body { margin: 0; height: 100%; background: #1B2233; overflow: hidden; font-family: "IBM Plex Mono", monospace; }
+  canvas { display: block; width: 100%; height: 100%; }
+  .tag { position: fixed; top: 12px; left: 12px; color: #F2B33D; background: #141A26; border: 1px solid #33405A; border-radius: 8px; padding: 6px 10px; font-size: 12px; }
+</style>
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="tag" id="tag">Preview: sample data, one site per phase. ?reveal=1 plays the fog-to-live reveal.</div>
+<script type="module">
+  // Visual check of each site phase with sample data. Not part of the city.
+  import * as THREE from 'three';
+  import { loadAll } from './src/assets.js';
+  import { buildSite } from './src/site.js';
+
+  const base = { supply: '1000000000', decimals: 6, blocksLeft: 14, blocksToStart: 6, solana: null, result: null };
+  const live = { ...base, phase: 'live', result: { price: { num: '400', den: '1' }, tokensSold: '700000000' }, solana: { allocated: '700000000', claimed: '420000000' } };
+  const samples = [
+    { ...base, launchId: 'a', name: 'Lot', phase: 'lot' },
+    { ...base, launchId: 'b', name: 'Fog', phase: 'bidding' },
+    { ...live, launchId: 'c', name: 'Live' },
+    { ...base, launchId: 'd', name: 'No sale', phase: 'no sale' },
+  ];
+  const reveal = new URLSearchParams(location.search).has('reveal');
+
+  const canvas = document.getElementById('c');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setSize(innerWidth, innerHeight, false);
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color('#1B2233');
+  scene.add(new THREE.HemisphereLight('#C8D6FF', '#2B2F38', 1));
+  const sun = new THREE.DirectionalLight('#FFE2B8', 1.6); sun.position.set(-60, 110, 50); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: '#3B414E' }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.5, 600);
+  camera.position.set(0, 55, 120); camera.lookAt(0, 18, 0);
+
+  await loadAll();
+  const sites = samples.map((s, i) => {
+    const site = buildSite(reveal && s.phase === 'live' ? { ...s, phase: 'bidding' } : s, 11 + i);
+    site.group.position.set(-42 + i * 28, 0, 0);
+    scene.add(site.group);
+    return { site, s };
+  });
+  if (reveal) setTimeout(() => sites.forEach(({ site, s }) => s.phase === 'live' && site.update(s)), 800);
+  const timer = new THREE.Timer();
+  renderer.setAnimationLoop((now) => {
+    timer.update(now);
+    const dt = Math.min(0.05, timer.getDelta());
+    sites.forEach(({ site }) => site.tick(dt, timer.getElapsed()));
+    renderer.render(scene, camera);
+  });
+</script>
+</body>
+</html>

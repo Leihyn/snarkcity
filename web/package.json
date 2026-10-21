@@ -1,0 +1,13 @@
+{
+  "name": "@snarkcity/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The SnarkCity city: launches as towers, rendered with three.js",
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  }
+}

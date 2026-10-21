@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SnarkCity</title>
+<meta name="description" content="Sealed launches. Public prices. Token launches where bids are shielded Zcash payments and tokens are claimed on Solana.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" aria-label="3D city of token launches. Drag to rotate, scroll to zoom. Click a site or its label to see the launch."></canvas>
+
+  <div id="loading" class="loading" role="status">
+    <div class="loading-name">SnarkCity</div>
+    <div class="loading-bar"><span id="loadingFill"></span></div>
+    <div class="loading-note" id="loadingNote">Loading the city</div>
+  </div>
+
+  <header class="hud brand panel">
+    <div class="brand-name">SnarkCity</div>
+    <div class="brand-line">Sealed launches. Public prices.</div>
+    <dl class="chain">
+      <div><dt>Zcash testnet</dt><dd id="zcashTip">…</dd></div>
+      <div><dt>Solana</dt><dd>devnet</dd></div>
+    </dl>
+  </header>
+
+  <aside class="hud launches panel" id="launches" aria-label="Launches" aria-live="polite"></aside>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
