@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { loadAll } from './assets.js';
 import { buildDistrict, SLOTS } from './city.js';
+import { bidScreen } from './bid-screen.js';
 import { buildSite } from './site.js';
 import { hash } from './rng.js';
 import { litFraction, PHASE_LABEL, pricePerToken, tokens, zec } from './view-model.js';
@@ -39,6 +40,7 @@ scene.add(sun);
 const sites = new Map(); // launchId -> { site, status, chip }
 let district = null;
 let selected = null;
+const bid = bidScreen();
 
 function resize() {
   const { clientWidth: w, clientHeight: h } = canvas;
@@ -81,6 +83,7 @@ function apply(data) {
     entry.label.position.y = entry.site.labelHeight();
     entry.chip.innerHTML = `<b>${esc(s.name)}</b><span class="phase ${s.phase.replace(' ', '-')}">${esc(PHASE_LABEL[s.phase])}</span>`;
     entry.chip.classList.toggle('on', selected === s.launchId);
+    bid.update(s);
   });
   renderPanel();
 }
@@ -126,11 +129,13 @@ function renderPanel() {
       ${selected === s.launchId ? `
         <p class="note">${esc(phaseNote(s))}</p>
         <dl class="rows">${detailRows(s)}</dl>
+        ${s.phase === 'bidding' ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>` : ''}
     </article>`).join('');
   const panel = document.getElementById('launches');
   panel.innerHTML = `<div class="eyebrow">Launches</div>${cards}`;
   panel.querySelectorAll('.launch-head').forEach((b) => b.addEventListener('click', () => select(b.dataset.id)));
+  panel.querySelectorAll('.bid-open').forEach((b) => b.addEventListener('click', () => bid.open(sites.get(b.dataset.id).status)));
 }
 
 function select(id) {

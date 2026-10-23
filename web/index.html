@@ -5,12 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SnarkCity</title>
 <meta name="description" content="Sealed launches. Public prices. Token launches where bids are shielded Zcash payments and tokens are claimed on Solana.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23161D2B'/%3E%3Crect x='5' y='3' width='6' height='11' fill='%23F2B33D'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="styles.css">
 <script type="importmap">
-{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/", "uqr": "./node_modules/uqr/dist/index.mjs" } }
 </script>
 </head>
 <body>
@@ -33,6 +34,54 @@
   </header>
 
   <aside class="hud launches panel" id="launches" aria-label="Launches" aria-live="polite"></aside>
+
+  <dialog id="bid" class="bid panel" aria-labelledby="bidTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow" id="bidStep">Step 1 of 3</div>
+    <h2 id="bidTitle">Sealed bid on <span id="bidName"></span></h2>
+    <p class="bid-timing" id="bidTiming" role="status"></p>
+
+    <section data-step="terms">
+      <dl class="rows bid-terms">
+        <div class="row"><dt>Reserve price</dt><dd id="bidReserve"></dd></div>
+        <div class="row"><dt>For sale</dt><dd id="bidSupply"></dd></div>
+      </dl>
+      <form id="bidForm" autocomplete="off" novalidate>
+        <label>Highest price you will pay <small>ZEC per token</small>
+          <input name="price" inputmode="decimal" placeholder="0.000004" required></label>
+        <label>Amount to send <small>ZEC</small>
+          <input name="amount" inputmode="decimal" placeholder="0.002" required></label>
+        <label>Refund address <small>your Zcash testnet address</small>
+          <input name="refundTo" spellcheck="false" placeholder="utest1…" required></label>
+        <p class="bid-summary" id="bidSummary" aria-live="polite"></p>
+        <button type="submit" class="btn">Create bid</button>
+      </form>
+      <p class="bid-fine">Your price and amount travel inside an encrypted Zcash memo. The city and other bidders see nothing until the result is final.</p>
+    </section>
+
+    <section data-step="save" hidden>
+      <p>Your browser made a claim key for this bid. Only a fingerprint of it goes in the memo:</p>
+      <code class="bid-code" id="bidCommit"></code>
+      <p>The bid file is the only copy of the key. Keep it private: you need it to claim your tokens on Solana, and anyone holding it can claim them instead.</p>
+      <button type="button" class="btn" id="bidSave">Save bid file</button>
+    </section>
+
+    <section data-step="pay" hidden>
+      <p>Scan with a Zcash testnet wallet and send from your shielded balance. The code fills in the address, amount and memo.</p>
+      <div class="bid-qr" id="bidQr"></div>
+      <dl class="bid-fields">
+        <div><dt>To</dt><dd><code id="bidAddr"></code><button type="button" class="copy" data-copy="bidAddr">Copy</button></dd></div>
+        <div><dt>Amount</dt><dd><code id="bidAmount"></code></dd></div>
+        <div><dt>Memo</dt><dd><code id="bidMemo"></code><button type="button" class="copy" data-copy="bidMemo">Copy</button></dd></div>
+      </dl>
+      <div class="bid-actions">
+        <a class="btn" id="bidOpen" href="#">Open in wallet</a>
+        <button type="button" class="btn ghost" data-copy="uri">Copy payment link</button>
+      </div>
+      <details class="bid-fine"><summary>Paying from the command line</summary><code class="bid-code" id="bidCli"></code></details>
+      <p class="bid-fine">After the window closes you get a receipt memo at your refund address with your tokens and any refund. Claim with your bid file once the tower goes live.</p>
+    </section>
+  </dialog>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

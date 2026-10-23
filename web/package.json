@@ -5,7 +5,8 @@
   "type": "module",
   "description": "The SnarkCity city: launches as towers, rendered with three.js",
   "dependencies": {
-    "three": "0.186.1"
+    "three": "0.186.1",
+    "uqr": "0.1.3"
   },
   "scripts": {
     "test": "node --test \"test/*.test.js\""
