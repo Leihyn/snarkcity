@@ -91,13 +91,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .bid-timing { margin: 0 0 12px; padding: 8px 10px; border-radius: 8px; background: var(--felt-2); color: var(--muted); font-size: 13px; }
 .bid-timing.late { background: var(--sodium-soft); color: var(--sodium); }
 .bid-terms { margin: 0 0 12px; }
-#bidForm { display: grid; gap: 12px; }
-#bidForm label { display: grid; gap: 4px; font-weight: 500; }
-#bidForm small { color: var(--muted); font-weight: 400; font-family: var(--mono); font-size: 11px; }
-#bidForm input { font: 14px var(--mono); color: var(--chalk); background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; width: 100%; }
-#bidForm input:focus-visible { outline: 2px solid var(--sodium); outline-offset: 1px; }
+#bidForm, #claimForm { display: grid; gap: 12px; }
+#bidForm label, #claimForm label { display: grid; gap: 4px; font-weight: 500; }
+#bidForm small, #claimForm small { color: var(--muted); font-weight: 400; font-family: var(--mono); font-size: 11px; }
+#bidForm input, #claimForm input { font: 14px var(--mono); color: var(--chalk); background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 10px; width: 100%; }
+#bidForm input:focus-visible, #claimForm input:focus-visible { outline: 2px solid var(--sodium); outline-offset: 1px; }
 .bid-summary { margin: 0; min-height: 1.5em; font-size: 13px; color: var(--live); }
 .bid-summary.problem { color: var(--sodium); }
+.bid-summary a { color: inherit; }
 .bid-fine { color: var(--muted); font-size: 12px; }
 .bid-fine summary { cursor: pointer; }
 .bid-code { display: block; font-family: var(--mono); font-size: 12px; word-break: break-all; background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }

@@ -82,6 +82,21 @@
       <p class="bid-fine">After the window closes you get a receipt memo at your refund address with your tokens and any refund. Claim with your bid file once the tower goes live.</p>
     </section>
   </dialog>
+
+  <dialog id="claim" class="bid panel" aria-labelledby="claimTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow">Claim</div>
+    <h2 id="claimTitle">Claim on <span id="claimName"></span></h2>
+    <form id="claimForm" autocomplete="off" novalidate>
+      <label>Bid file <small>snarkcity-bid-….json, saved when you bid</small>
+        <input type="file" name="file" accept=".json,application/json" required></label>
+      <label>Send the tokens to <small>your Solana address</small>
+        <input name="recipient" spellcheck="false" placeholder="Blank: the address of the key in your bid file"></label>
+      <p class="bid-summary" id="claimStatus" aria-live="polite"></p>
+      <button type="submit" class="btn" disabled>Claim tokens</button>
+    </form>
+    <p class="bid-fine">The relayer pays the Solana fees. Before signing, your browser checks that the transaction pays the address above, then signs with the key in your bid file. The key never leaves this page.</p>
+  </dialog>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

@@ -4,18 +4,23 @@
 //
 // city.json:
 //   { "port": 5174, "web": "../web", "devtool": "...", "tipWallet": "<any synced zcash-devtool wallet>",
-//     "launches": ["<launch>.public.json", ...] }
+//     "relayerKeypair": "<solana keypair that pays for claims>", "launches": ["<launch>.public.json", ...] }
 //
 // A settlement is published next to its terms as <launch>.settlement.json and
 // shown only once the launch is final on Solana.
+//
+// Claims: POST /api/claim/prepare {launchId, commitment, claimPubkey, salt, recipient?}
+// returns the transaction message for the browser to sign; POST /api/claim/submit
+// {message, signature} co-signs and sends it. See src/relay.ts.
 
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
-import { createServer, type ServerResponse } from "node:http";
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { chainTip, refresh } from "../../watcher/src/devtool.ts";
-import { fetchLaunch, program, type LaunchState } from "../src/client.ts";
-import type { PublicTerms } from "../src/launch-file.ts";
+import { fetchLaunch, loadKeypair, program, type LaunchState } from "../src/client.ts";
+import { expandHome, type PublicTerms } from "../src/launch-file.ts";
+import { ClaimRelay, type Allocation } from "../src/relay.ts";
 import { launchStatus, type SettlementSummary } from "../src/status.ts";
 
 const configPath = resolve(process.argv[2]);
@@ -69,6 +74,43 @@ async function launches() {
   }));
 }
 
+const relay = cfg.relayerKeypair
+  ? new ClaimRelay(new Connection(terms(launchPaths[0]).rpc, "confirmed"), loadKeypair(expandHome(cfg.relayerKeypair)))
+  : null;
+
+async function readBody(req: IncomingMessage): Promise<Record<string, string>> {
+  let body = "";
+  for await (const chunk of req) {
+    body += chunk;
+    if (body.length > 16_384) throw new Error("request too large");
+  }
+  return JSON.parse(body);
+}
+
+// Claims are relayed only for launches that are final on Solana with a sale.
+async function claimPrepare(body: Record<string, string>) {
+  const path = launchPaths.find((p) => terms(p).launchId === body.launchId);
+  if (!path) throw new Error("unknown launch");
+  const t = terms(path);
+  const state = await onChain(t);
+  if (!state?.finalized || state.noSale) throw new Error(`${t.name} has no result to claim yet`);
+  const settlement = JSON.parse(readFileSync(path.replace(/\.public\.json$/, ".settlement.json"), "utf8"));
+  const { commitment, claimPubkey, salt, recipient } = body;
+  return relay!.prepare(t, settlement.claims as Allocation[], { commitment, claimPubkey, salt, recipient });
+}
+
+async function api(req: IncomingMessage, res: ServerResponse, urlPath: string) {
+  const reply = (code: number, data: unknown) => res.writeHead(code, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(JSON.stringify(data));
+  if (!relay) return reply(503, { error: "this server does not relay claims" });
+  try {
+    const body = await readBody(req);
+    if (urlPath === "/api/claim/prepare") return reply(200, await claimPrepare(body));
+    return reply(200, { signature: await relay.submit(body.message, body.signature) });
+  } catch (e) {
+    return reply(400, { error: (e as Error).message.split("\n")[0] });
+  }
+}
+
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
   ".json": "application/json", ".glb": "model/gltf-binary", ".png": "image/png", ".svg": "image/svg+xml", ".txt": "text/plain; charset=utf-8",
@@ -89,5 +131,6 @@ createServer(async (req, res) => {
     const body = JSON.stringify({ zcashTip, launches: await launches() });
     return res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(body);
   }
+  if (req.method === "POST" && (urlPath === "/api/claim/prepare" || urlPath === "/api/claim/submit")) return api(req, res, urlPath);
   sendFile(res, urlPath);
 }).listen(cfg.port, "127.0.0.1", () => console.log(`SnarkCity: http://127.0.0.1:${cfg.port}/  (zcash height ${zcashTip})`));
