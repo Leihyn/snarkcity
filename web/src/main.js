@@ -4,6 +4,7 @@ import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer
 import { loadAll } from './assets.js';
 import { buildDistrict, SLOTS } from './city.js';
 import { bidScreen } from './bid-screen.js';
+import { auditScreen } from './audit-screen.js';
 import { claimScreen } from './claim-screen.js';
 import { buildSite } from './site.js';
 import { hash } from './rng.js';
@@ -43,6 +44,7 @@ let district = null;
 let selected = null;
 const bid = bidScreen();
 const claim = claimScreen();
+const auditView = auditScreen();
 
 function resize() {
   const { clientWidth: w, clientHeight: h } = canvas;
@@ -133,13 +135,15 @@ function renderPanel() {
         <dl class="rows">${detailRows(s)}</dl>
         ${s.phase === 'bidding' ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
         ${s.phase === 'live' ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}
+        ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}">Check the result</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>` : ''}
     </article>`).join('');
   const panel = document.getElementById('launches');
   panel.innerHTML = `<div class="eyebrow">Launches</div>${cards}`;
   panel.querySelectorAll('.launch-head').forEach((b) => b.addEventListener('click', () => select(b.dataset.id)));
-  panel.querySelectorAll('.bid-open:not(.claim-open)').forEach((b) => b.addEventListener('click', () => bid.open(sites.get(b.dataset.id).status)));
+  panel.querySelectorAll('.bid-open:not(.claim-open):not(.audit-open)').forEach((b) => b.addEventListener('click', () => bid.open(sites.get(b.dataset.id).status)));
   panel.querySelectorAll('.claim-open').forEach((b) => b.addEventListener('click', () => claim.open(sites.get(b.dataset.id).status)));
+  panel.querySelectorAll('.audit-open').forEach((b) => b.addEventListener('click', () => auditView.open(sites.get(b.dataset.id).status)));
 }
 
 function select(id) {

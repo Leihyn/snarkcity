@@ -97,6 +97,23 @@
     </form>
     <p class="bid-fine">The relayer pays the Solana fees. Before signing, your browser checks that the transaction pays the address above, then signs with the key in your bid file. The key never leaves this page.</p>
   </dialog>
+
+  <dialog id="audit" class="bid panel" aria-labelledby="auditTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow">Public audit</div>
+    <h2 id="auditTitle">Check <span id="auditName"></span></h2>
+    <p class="bid-fine">Bids are private, but the result is not taken on trust. With the launch's viewing key, anyone can re-run the auction from the Zcash chain and compare it with what Solana pays out.</p>
+    <p class="audit-verdict" id="auditVerdict" role="status"></p>
+    <dl class="rows" id="auditRows"></dl>
+    <p class="bid-fine" id="auditWhen"></p>
+    <button type="button" class="btn ghost" id="auditRerun">Check again</button>
+    <h3 class="audit-h">Viewing key</h3>
+    <div class="bid-fields"><div><dd><code id="auditKey"></code><button type="button" class="copy" id="auditCopy">Copy</button></dd></div></div>
+    <p class="bid-fine">It shows every bid's amount, memo and refund address, and every refund paid. It never shows who sent a bid.</p>
+    <h3 class="audit-h">Run it yourself</h3>
+    <div class="bid-actions"><a class="btn ghost" id="auditTerms" href="#">Download terms</a><a class="btn ghost" id="auditKeyFile" href="#">Download viewing key</a></div>
+    <code class="bid-code" id="auditCmd"></code>
+  </dialog>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

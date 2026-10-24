@@ -9,10 +9,11 @@
 import { Connection, PublicKey } from "@solana/web3.js";
 import { join } from "node:path";
 import { readReceived, readSent, scanBids } from "../../watcher/src/bids.ts";
-import { chainTip, pay, refresh, shieldedBalance } from "../../watcher/src/devtool.ts";
+import { chainTip, pay, refresh, shieldedBalance, viewingKey } from "../../watcher/src/devtool.ts";
 import { batches, feeEstimateZats, planPayouts, withLateBids } from "../../watcher/src/payouts.ts";
 import { payBatch } from "../../watcher/src/pay-batch.ts";
 import { settle } from "../../watcher/src/settle.ts";
+import { writeFileSync } from "node:fs";
 import { closeWithoutSale, fetchLaunch, loadKeypair, program, setRoot, withdrawUnsold } from "../src/client.ts";
 import { expandHome, readLaunch, writeJson } from "../src/launch-file.ts";
 import { quoteZecToSol } from "../src/near.ts";
@@ -55,6 +56,12 @@ if (!onChain.finalized && s.root === null) {
 } else {
   console.log(`  already final on Solana and matches (${onChain.noSale ? "no sale" : "root"})`);
 }
+// The result is final on Solana, so publish the viewing key: anyone can now
+// re-run the auction from the Zcash chain and check refunds (audit-launch.ts).
+const keyPath = path.replace(/\.json$/, ".viewkey.txt");
+writeFileSync(keyPath, `${await viewingKey(wallet)}\n`);
+console.log(`  viewing key published: ${keyPath}`);
+
 const unsold = BigInt(launch.sale.supply) - s.tokensSold;
 const after = await fetchLaunch(p, creator.publicKey, launchId);
 if (unsold > 0n && !after.unsoldWithdrawn) {

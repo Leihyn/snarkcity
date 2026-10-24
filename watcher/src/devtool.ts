@@ -116,6 +116,14 @@ export async function defaultAddress(w: Wallet): Promise<string> {
   return m[0];
 }
 
+// The wallet's unified full viewing key. Publishing it lets anyone audit the
+// launch: it shows every payment in and out, never who sent them.
+export async function viewingKey(w: Wallet): Promise<string> {
+  const m = /uviewtest1[0-9a-z]+|uview1[0-9a-z]+/.exec(await read(w, ["list-accounts"]));
+  if (!m) throw new Error("wallet has no unified viewing key");
+  return m[0];
+}
+
 // The single-receiver encodings inside an address, via `zcash-devtool inspect`
 // (local decoding, no network). A unified address lists each receiver as
 // "- <Kind> (<encoding>)".

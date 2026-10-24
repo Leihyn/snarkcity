@@ -12,6 +12,11 @@
 // Claims: POST /api/claim/prepare {launchId, commitment, claimPubkey, salt, recipient?}
 // returns the transaction message for the browser to sign; POST /api/claim/submit
 // {message, signature} co-signs and sends it. See src/relay.ts.
+//
+// Audit: GET /api/audit/<launchId> returns the published viewing key and the
+// last audit report, starting one if there is none; POST to it re-runs it.
+// /api/audit/<launchId>/terms.json and /viewkey.txt are the files needed to
+// run the same audit yourself (scripts/audit-launch.ts).
 
 import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
@@ -20,6 +25,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { chainTip, refresh } from "../../watcher/src/devtool.ts";
 import { fetchLaunch, loadKeypair, program, type LaunchState } from "../src/client.ts";
 import { expandHome, type PublicTerms } from "../src/launch-file.ts";
+import { Auditor, launchFiles } from "../src/auditor.ts";
 import { ClaimRelay, type Allocation } from "../src/relay.ts";
 import { launchStatus, type SettlementSummary } from "../src/status.ts";
 
@@ -78,6 +84,25 @@ const relay = cfg.relayerKeypair
   ? new ClaimRelay(new Connection(terms(launchPaths[0]).rpc, "confirmed"), loadKeypair(expandHome(cfg.relayerKeypair)))
   : null;
 
+const auditor = new Auditor(cfg.devtool);
+// Audit every launch with a published key now, so the audit page opens on a
+// report rather than a first sync of the chain.
+for (const p of launchPaths) auditor.start(p);
+
+function auditRoute(req: IncomingMessage, res: ServerResponse, urlPath: string) {
+  const [, , , id, file] = urlPath.split("/");
+  const path = launchPaths.find((p) => terms(p).launchId === id);
+  if (!path) return res.writeHead(404).end("unknown launch");
+  if (file) {
+    const f = launchFiles(path);
+    const source = file === "terms.json" ? f.terms : file === "viewkey.txt" ? f.viewKey : null;
+    if (!source || !existsSync(source)) return res.writeHead(404).end("Not found");
+    return res.writeHead(200, { "Content-Type": TYPES[extname(source)], "Content-Disposition": `attachment; filename="${source.split(sep).pop()}"` }).end(readFileSync(source));
+  }
+  auditor.start(path, req.method === "POST");
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(JSON.stringify(auditor.view(path)));
+}
+
 async function readBody(req: IncomingMessage): Promise<Record<string, string>> {
   let body = "";
   for await (const chunk of req) {
@@ -132,5 +157,6 @@ createServer(async (req, res) => {
     return res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(body);
   }
   if (req.method === "POST" && (urlPath === "/api/claim/prepare" || urlPath === "/api/claim/submit")) return api(req, res, urlPath);
+  if (urlPath.startsWith("/api/audit/")) return auditRoute(req, res, urlPath);
   sendFile(res, urlPath);
 }).listen(cfg.port, "127.0.0.1", () => console.log(`SnarkCity: http://127.0.0.1:${cfg.port}/  (zcash height ${zcashTip})`));
