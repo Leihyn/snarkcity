@@ -3,6 +3,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import type { PoolRecord } from "./pool.ts";
 
 export interface LaunchFile {
   name: string;
@@ -23,6 +24,7 @@ export interface LaunchFile {
     mint?: string; // filled by open-launch (a test mint is created if absent)
     creator?: string;
     launchId?: string;
+    pool?: PoolRecord; // filled by seed-pool after the sale
   };
 }
 
@@ -40,6 +42,7 @@ export interface PublicTerms {
   mint: string;
   creator: string;
   launchId: string;
+  pool?: PoolRecord;
 }
 
 // A bid can take several blocks to be mined after it is sent. With a short
@@ -70,7 +73,8 @@ export function publicTerms(l: LaunchFile, programId: string): PublicTerms {
   if (!address || startHeight === undefined || endHeight === undefined || !mint || !creator || !launchId) {
     throw new Error("launch is not open yet");
   }
-  return { name: l.name, kind: l.kind, bidAddress: address, startHeight, endHeight, ...l.sale, programId, rpc: l.solana.rpc, mint, creator, launchId };
+  const pool = l.solana.pool && { pool: l.solana.pool };
+  return { name: l.name, kind: l.kind, bidAddress: address, startHeight, endHeight, ...l.sale, programId, rpc: l.solana.rpc, mint, creator, launchId, ...pool };
 }
 
 export const expandHome = (p: string) => p.replace(/^~(?=\/)/, homedir());

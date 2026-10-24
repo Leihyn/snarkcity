@@ -19,3 +19,13 @@ test("bidding windows shorter than the minimum are refused", () => {
 test("a zero supply is refused", () => {
   assert.match(launchProblems(launch(30, "0"))[0], /supply/);
 });
+
+test("pool sizing: the raise buys tokens at the clearing price, SOL parses exactly", async () => {
+  const { lamportsOf, poolTokens } = await import("../src/pool.ts");
+  assert.equal(poolTokens(200_000n, { num: 100n, den: 1n }, 6), 2_000_000_000n, "0.002 ZEC at 100 zats per token is 2,000 tokens");
+  assert.equal(poolTokens(1_000n, { num: 3n, den: 1n }, 0), 333n, "rounds down");
+  assert.equal(lamportsOf("0.022856557"), 22_856_557n);
+  assert.equal(lamportsOf("1"), 1_000_000_000n);
+  assert.equal(lamportsOf("0.0000000019"), 1n, "beyond 9 decimals is cut, not rounded up");
+  assert.throws(() => lamportsOf("-1"), /not a SOL amount/);
+});

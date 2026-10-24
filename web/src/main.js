@@ -108,6 +108,7 @@ function detailRows(s) {
       ['Claimed', `${Math.round(litFraction(s) * 100)}%`],
     );
   }
+  if (s.pool) rows.push(['Pool (burned LP)', `${tokens(s.pool.tokens, s.decimals)} tokens + ${(Number(s.pool.lamports) / 1e9).toLocaleString("en-US", { maximumFractionDigits: 4 })} SOL`]);
   return rows.map(([k, v]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
 }
 
@@ -136,7 +137,8 @@ function renderPanel() {
         ${s.phase === 'bidding' ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
         ${s.phase === 'live' ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}
         ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}">Check the result</button>` : ''}
-        <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>` : ''}
+        <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>
+        ${s.pool ? `<a class="ext" href="https://explorer.solana.com/address/${esc(s.pool.id)}?cluster=devnet" target="_blank" rel="noopener">Raydium pool on devnet</a>` : ''}` : ''}
     </article>`).join('');
   const panel = document.getElementById('launches');
   panel.innerHTML = `<div class="eyebrow">Launches</div>${cards}`;
