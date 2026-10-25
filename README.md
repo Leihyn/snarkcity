@@ -2,6 +2,8 @@
 
 **Sealed launches. Public prices.**
 
+![The SnarkCity district: each launch is a tower, lit as its winners claim](docs/city.jpg)
+
 A new token launches. Bots read every bid in the mempool and buy in front of it. Insiders take the cheap allocation. Large buyers get copied or hunted. By the time an ordinary buyer's order lands, the price has already moved against them. On a public chain, the act of bidding is itself the leak.
 
 SnarkCity is a token launchpad where bids are sealed. Each bid is a shielded Zcash payment, and its price is time-locked so nobody can read it until bidding closes, not other bidders and not the launch operator. When the window closes, one uniform-price auction sets a single clearing price that every winner pays. Tokens are claimed on Solana. Anyone can re-run the whole auction from the Zcash chain with the launch's published viewing key and check that the result and every refund are right.
@@ -47,17 +49,27 @@ A launch file names the wallet, the window (`biddingBlocks`, at least 20), the s
 
 ## How it works
 
-```
- bidder's browser                Zcash testnet                       Solana devnet
- ----------------                -------------                       -------------
- claim key + salt  ──┐
- price, refund ──► seal to drand round N
-                     └──► shielded payment + 512-byte memo ──► launch wallet
-                                                                (FROST 2-of-3, watch-only)
-                          drand publishes round N ──► open bids, run auction ──► Merkle root
-                                                       refunds + receipts ◄──      (claim program)
- bid file ──► claim screen ──► relayer builds tx ──► browser checks + signs ──► tokens
- anyone ──► viewing key ──► re-run auction from chain ──► compare with root ──► verdict
+```mermaid
+sequenceDiagram
+    participant B as Bidder's browser
+    participant Z as Zcash testnet<br/>(launch wallet, FROST 2-of-3)
+    participant D as drand
+    participant O as Operator
+    participant S as Solana devnet<br/>(claim program)
+    participant A as Anyone
+
+    O->>S: lock the supply
+    B->>B: seal price, refund address<br/>and claim-key fingerprint to round N
+    B->>Z: shielded payment with the 512-byte sealed memo
+    Note over Z: prices unreadable<br/>until round N
+    D-->>O: publish round N
+    O->>O: open the bids, run the uniform-price auction
+    O->>S: post the allocation's Merkle root
+    O->>Z: refunds and receipts, each signed by 2 of 3 key shares
+    B->>S: claim with the bid file (relayer pays fees, browser checks the recipient)
+    O-->>A: publish the viewing key
+    A->>Z: re-run the auction from the chain
+    A->>S: compare with the root, check every refund
 ```
 
 The parts:
