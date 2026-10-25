@@ -13,6 +13,7 @@ import { chainTip, pay, refresh, shieldedBalance, viewingKey } from "../../watch
 import { batches, feeEstimateZats, planPayouts, withLateBids } from "../../watcher/src/payouts.ts";
 import { payBatch } from "../../watcher/src/pay-batch.ts";
 import { drandSignature, unseal } from "../../watcher/src/sealed.ts";
+import { frostPayUri } from "../../watcher/src/frost.ts";
 import { settle } from "../../watcher/src/settle.ts";
 import { writeFileSync } from "node:fs";
 import { closeWithoutSale, fetchLaunch, loadKeypair, program, setRoot, withdrawUnsold } from "../src/client.ts";
@@ -82,7 +83,9 @@ if (unsold > 0n && !after.unsoldWithdrawn) {
 
 if (flag !== "--no-payout") {
   const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db), tip);
-  const groups = batches(plan.payouts, 8);
+  // A FROST payout pays one recipient per transaction (pczt create takes one).
+  const frost = launch.custody?.kind === "frost" ? launch.custody : null;
+  const groups = batches(plan.payouts, frost ? 1 : 8);
   const need = plan.payouts.reduce((t, x) => t + x.zats, 0n) + feeEstimateZats(groups.map((g) => g.length));
   const { spendable, pending } = await shieldedBalance(wallet);
   if (plan.payouts.length > 0 && spendable < need) {
@@ -94,13 +97,22 @@ if (flag !== "--no-payout") {
     console.log(`  payouts waiting: need ~${need} zatoshis, ${spendable} spendable, ${pending} confirming: ${advice}`);
   } else {
     const deps = {
-      pay: (uri: string) => pay(wallet, uri),
+      pay: (uri: string) => (frost ? frostPayUri(wallet, frost, uri) : pay(wallet, uri)),
       refresh: () => refresh(wallet),
       chainTip: () => chainTip(wallet),
       readSent: () => readSent(db),
     };
     for (const batch of groups) {
-      const r = await payBatch(batch, deps);
+      const r = await payBatch(batch, deps).catch((e: Error) => {
+        // Each payout locks its change until it confirms; with one payout per
+        // transaction (FROST) later ones can run short. Nothing was sent.
+        if (/Insufficient balance/.test(e.message)) return { status: "waiting" as const };
+        throw e;
+      });
+      if (r.status === "waiting") {
+        console.log("  payouts waiting: change from the payouts just sent is still confirming; re-run shortly");
+        break;
+      }
       if (r.status === "paid") console.log(`  paid ${batch.length} refunds/receipts in ${r.txid}`);
       else if (r.status === "in flight") console.log(`  ${batch.length} payouts sent but unconfirmed (connection dropped); they count once mined, or are re-paid by a later run if they expire`);
       else console.log(`  ${batch.length} payouts not sent (${r.error}); nothing went out, re-run close-launch`);
@@ -113,7 +125,7 @@ if (s.raisedZats === 0n) {
   console.log("  nothing raised: no swap to price");
 } else try {
   const q = await quoteZecToSol(s.raisedZats, creator.publicKey.toBase58());
-  console.log(`  NEAR Intents live quote: ${q.zecIn} ZEC -> ${q.solOut} SOL ($${Number(q.usdOut).toFixed(2)}), ~${q.secondsEstimate}s`);
+  console.log(`  NEAR Intents live quote (mainnet price; not executed, NEAR Intents has no testnet): ${q.zecIn} ZEC -> ${q.solOut} SOL ($${Number(q.usdOut).toFixed(2)}), ~${q.secondsEstimate}s`);
 } catch (e) {
   console.log(`  NEAR Intents quote unavailable: ${(e as Error).message}`);
 }

@@ -3,6 +3,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
+import type { FrostCustody } from "../../watcher/src/frost.ts";
 import type { PoolRecord } from "./pool.ts";
 
 // Sealed launches: bids are time-locked to a drand round (web/src/seal.js).
@@ -16,11 +17,12 @@ export interface LaunchFile {
   name: string;
   kind: "memecoin" | "startup";
   sealed?: boolean; // seal bids with drand (set before opening)
+  custody?: FrostCustody; // 2-of-3 FROST key instead of a single spending key (scripts/frost-wallet.ts)
   seal?: SealTerms; // filled by open-launch for sealed launches
   zcash: {
     devtool: string;
     walletDir: string; // a fresh wallet for this launch only
-    identity: string;
+    identity?: string; // age identity that unlocks the wallet's spending key; absent under FROST custody
     biddingBlocks: number; // how long bidding stays open
     address?: string; // filled by open-launch: where bids are sent
     startHeight?: number;
@@ -66,6 +68,7 @@ export function launchProblems(l: LaunchFile): string[] {
   }
   if (!(BigInt(l.sale.supply) > 0n)) problems.push("supply must be greater than zero");
   if (!(BigInt(l.sale.reservePrice) >= 0n)) problems.push("reservePrice cannot be negative");
+  if (!l.zcash.identity && !l.custody) problems.push("the launch wallet needs an identity file or FROST custody to pay refunds");
   return problems;
 }
 

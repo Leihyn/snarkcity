@@ -134,7 +134,7 @@ export async function receivers(bin: string, address: string): Promise<string[]>
   return found.length > 0 ? found : [address];
 }
 
-function lastTxid(out: string): string {
+export function lastTxid(out: string): string {
   const txid = out.trim().split("\n").pop()?.trim() ?? "";
   if (!/^[0-9a-f]{64}$/.test(txid)) throw new Error(`no txid in output: ${out.slice(-200)}`);
   return txid;

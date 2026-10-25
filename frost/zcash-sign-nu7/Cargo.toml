@@ -1,0 +1,29 @@
+[package]
+name = "zcash-sign-nu7"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "zcash-sign"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4.5", features = ["derive"] }
+eyre = "0.6"
+hex = "0.4"
+ff = "0.14"
+orchard = { version = "0.16", features = ["unstable-frost"] }
+pczt = { version = "=0.10.0-pre.2", features = ["signer", "orchard"] }
+zcash_keys = { version = "=0.17.0-pre.2", features = ["orchard", "unstable-frost"] }
+zcash_primitives = "=0.31.0-pre.2"
+zcash_protocol = "=0.11.0-pre.1"
+
+[patch.crates-io]
+pczt = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_address = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_encoding = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_keys = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_primitives = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_protocol = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+zcash_transparent = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
+equihash = { git = "https://github.com/zcash/librustzcash.git", rev = "eb38d7a373661179dbc083a2fd58b3a6c9b25818" }
