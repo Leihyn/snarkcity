@@ -1,0 +1,30 @@
+# BuildKit reads this for `docker build -f deploy/Dockerfile .`: it looks for
+# <Dockerfile>.dockerignore next to the Dockerfile before <context>/.dockerignore,
+# so a plain deploy/.dockerignore would be ignored with the repo root as context.
+#
+# Allowlist: only the code the image needs. Wallets, keys, secrets, node_modules,
+# the Anchor program and its target/ never enter the build context.
+*
+!auction/package.json
+!auction/src
+!watcher/package.json
+!watcher/src
+!relayer/package.json
+!relayer/package-lock.json
+!relayer/src
+!relayer/scripts
+!web/package.json
+!web/package-lock.json
+!web/index.html
+!web/preview.html
+!web/styles.css
+!web/src
+!web/assets
+**/node_modules
+**/*.secret*
+**/*_secret*
+**/identity.age
+**/keys.toml
+**/.env
+**/.env.*
+**/.DS_Store

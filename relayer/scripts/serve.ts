@@ -4,7 +4,8 @@
 //
 // city.json:
 //   { "port": 5174, "web": "../web", "devtool": "...", "tipWallet": "<any synced zcash-devtool wallet>",
-//     "relayerKeypair": "<solana keypair that pays for claims>", "launches": ["<launch>.public.json", ...] }
+//     "relayerKeypair": "<solana keypair that pays for claims>", "launches": ["<launch>.public.json", ...],
+//     "host": "0.0.0.0" (optional; default 127.0.0.1, set it inside a container) }
 //
 // A settlement is published next to its terms as <launch>.settlement.json and
 // shown only once the launch is final on Solana.
@@ -13,8 +14,8 @@
 // returns the transaction message for the browser to sign; POST /api/claim/submit
 // {message, signature} co-signs and sends it. See src/relay.ts.
 //
-// Audit: GET /api/audit/<launchId> returns the published viewing key and the
-// last audit report, starting one if there is none; POST to it re-runs it.
+// Audit: GET /api/audit/<launchId>/report returns the published viewing key and
+// the last audit report, starting one if there is none; POST to it re-runs it.
 // /api/audit/<launchId>/terms.json and /viewkey.txt are the files needed to
 // run the same audit yourself (scripts/audit-launch.ts).
 
@@ -96,7 +97,7 @@ function auditRoute(req: IncomingMessage, res: ServerResponse, urlPath: string) 
   const [, , , id, file] = urlPath.split("/");
   const path = launchPaths.find((p) => terms(p).launchId === id);
   if (!path) return res.writeHead(404).end("unknown launch");
-  if (file) {
+  if (file && file !== "report") {
     const f = launchFiles(path);
     const source = file === "terms.json" ? f.terms : file === "viewkey.txt" ? f.viewKey : null;
     if (!source || !existsSync(source)) return res.writeHead(404).end("Not found");
@@ -162,4 +163,4 @@ createServer(async (req, res) => {
   if (req.method === "POST" && (urlPath === "/api/claim/prepare" || urlPath === "/api/claim/submit")) return api(req, res, urlPath);
   if (urlPath.startsWith("/api/audit/")) return auditRoute(req, res, urlPath);
   sendFile(res, urlPath);
-}).listen(cfg.port, "127.0.0.1", () => console.log(`SnarkCity: http://127.0.0.1:${cfg.port}/  (zcash height ${zcashTip})`));
+}).listen(cfg.port, cfg.host ?? "127.0.0.1", () => console.log(`SnarkCity: http://127.0.0.1:${cfg.port}/  (zcash height ${zcashTip})`));

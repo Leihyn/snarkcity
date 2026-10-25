@@ -15,7 +15,9 @@
 //   12..   timelock-encrypted AES key: U (96) | V (32) | W (32)
 //   172..  AES-GCM IV (12)
 //   184..  ciphertext length, u16 big-endian
-//   186..  AES-256-GCM ciphertext of commitment (32) | max price u64 (8) | refund address (UTF-8)
+//   186..  AES-256-GCM ciphertext of commitment (32) | max price u64 (8) | refund address
+//          (UTF-8, zero-padded so every sealed memo is exactly 512 bytes and its
+//          length says nothing about the address)
 // The first 12 bytes are authenticated as associated data, so the round cannot be swapped.
 
 import { decryptOnG2, encryptOnG2RFC9380, hashedRoundNumber } from '../vendor/tlock-ibe.js';
@@ -32,6 +34,7 @@ export const DRAND = {
 const MAGIC = [0xff, 0x53, 0x43, 0x32]; // 0xFF "SC2"
 const HEADER = 12, KEY_CT = 160, IV = 12, LEN = 2, BODY = HEADER + KEY_CT + IV + LEN;
 const MEMO_MAX = 512, TAG = 16;
+const ADDRESS_ROOM = MEMO_MAX - BODY - TAG - 40; // 270 bytes for the refund address
 const hex = (h) => Uint8Array.from(h.match(/../g) ?? [], (b) => parseInt(b, 16));
 const toHex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -54,11 +57,14 @@ export async function sealBid({ commitment, maxPrice, refundTo }, round, crypto 
   const header = Uint8Array.from([...MAGIC, ...u64(round)]);
   const key = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(IV));
-  const plain = Uint8Array.from([...hex(commitment), ...u64(maxPrice), ...new TextEncoder().encode(refundTo ?? '')]);
+  const address = new TextEncoder().encode(refundTo ?? '');
+  if (address.length > ADDRESS_ROOM) throw new Error(`refund address is ${address.length} bytes; a sealed bid holds ${ADDRESS_ROOM}`);
+  const plain = new Uint8Array(40 + ADDRESS_ROOM);
+  plain.set([...hex(commitment), ...u64(maxPrice)]);
+  plain.set(address, 40);
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: header }, await aesKey(key, 'encrypt', crypto), plain));
   const k = await encryptOnG2RFC9380(hex(DRAND.publicKey), hashedRoundNumber(round), key);
   const memo = Uint8Array.from([...header, ...k.U, ...k.V, ...k.W, ...iv, ct.length >> 8, ct.length & 255, ...ct]);
-  if (memo.length > MEMO_MAX) throw new Error(`sealed bid is ${memo.length} bytes; Zcash memos hold ${MEMO_MAX}`);
   return memo;
 }
 
@@ -81,7 +87,7 @@ export async function openBid(memo, signatureHex, crypto = globalThis.crypto) {
     const plain = new Uint8Array(await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv, additionalData: memo.slice(0, HEADER) }, await aesKey(key, 'decrypt', crypto), memo.slice(BODY, BODY + len),
     ));
-    const refundTo = new TextDecoder('utf-8', { fatal: true }).decode(plain.slice(40));
+    const refundTo = new TextDecoder('utf-8', { fatal: true }).decode(plain.slice(40)).replace(/\0+$/, '');
     return { commitment: toHex(plain.slice(0, 32)), maxPrice: new DataView(plain.buffer, 32, 8).getBigUint64(0), ...(refundTo && { refundTo }) };
   } catch {
     return null; // wrong round's signature, tampered ciphertext, or bad text

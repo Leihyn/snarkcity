@@ -49,7 +49,7 @@ export function envelopeRows(report, decimals) {
       : p > price || BigInt(e.refundZats) === 0n ? 'won' : 'partial';
     return {
       outcome,
-      label: { won: 'Won in full', partial: 'Partly filled', lost: 'Lost, refunded', late: 'Late, refunded' }[outcome],
+      label: { won: 'Won', partial: 'Partial', lost: 'Lost', late: 'Late' }[outcome],
       maxPrice: `${zec(e.maxPrice)} ZEC`,
       amount: `${zec(e.amountZats)} ZEC`,
       tokens: BigInt(e.tokens) > 0n ? tokens(e.tokens, decimals) : '-',

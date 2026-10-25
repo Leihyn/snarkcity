@@ -53,7 +53,16 @@ test("memos padded to 512 bytes by the wallet still open; others are not sealed 
 });
 
 test("an address too long for the memo is refused when sealing", async () => {
-  await assert.rejects(sealBid({ ...bid, refundTo: "u".repeat(400) }, ROUND), /Zcash memos hold 512/);
+  await assert.rejects(sealBid({ ...bid, refundTo: "u".repeat(271) }, ROUND), /a sealed bid holds 270/);
+});
+
+test("every sealed bid is exactly 512 bytes, whatever its address", async () => {
+  for (const refundTo of [undefined, "utest1short", LONG_UA, "u".repeat(270)]) {
+    const memo = await sealBid({ ...bid, refundTo }, ROUND);
+    assert.equal(memo.length, 512, `address of ${refundTo?.length ?? 0} characters`);
+    const opened = await openBid(memo, SIG);
+    assert.equal(opened.refundTo, refundTo);
+  }
 });
 
 test("rounds map to drand's schedule", () => {

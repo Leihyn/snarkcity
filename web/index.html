@@ -27,6 +27,7 @@
   <header class="hud brand panel">
     <div class="brand-name">SnarkCity</div>
     <div class="brand-line">Sealed launches. Public prices.</div>
+    <p class="snapshot-note" id="snapshotNote"></p>
     <dl class="chain">
       <div><dt>Zcash testnet</dt><dd id="zcashTip">…</dd></div>
       <div><dt>Solana</dt><dd>devnet</dd></div>
@@ -91,8 +92,9 @@
     <form id="claimForm" autocomplete="off" novalidate>
       <label>Bid file <small>snarkcity-bid-….json, saved when you bid</small>
         <input type="file" name="file" accept=".json,application/json" required></label>
-      <label>Send the tokens to <small>your Solana address</small>
+      <label>Send the tokens to <small>a Solana address, or blank for a fresh one</small>
         <input name="recipient" spellcheck="false" placeholder="Blank: the address of the key in your bid file"></label>
+      <p class="bid-fine">After the close, anyone can match a claim to its bid: the amount, the price and the refund address, though never who paid. Claiming to your everyday wallet ties that bid to it. Left blank, the tokens go to a fresh address made from the key in your bid file, tied to nothing else until you move them.</p>
       <p class="bid-summary" id="claimStatus" aria-live="polite"></p>
       <button type="submit" class="btn" disabled>Claim tokens</button>
     </form>
@@ -108,7 +110,7 @@
     <dl class="rows" id="auditRows"></dl>
     <div id="auditEnvelopes" hidden>
       <h3 class="audit-h">The opened bids</h3>
-      <p class="bid-fine">Every bid, highest price first, with what it got. Bids are anonymous: no addresses or keys.</p>
+      <p class="bid-fine">Every bid, highest price first, with what it got: won in full, partly filled at the clearing price, lost, or late. Lost and late bids get everything back. Bids are anonymous: no addresses or keys.</p>
       <div class="envelopes-wrap"><table class="envelopes">
         <thead><tr><th>Max price</th><th>Sent</th><th>Tokens</th><th>Refund</th><th>Outcome</th></tr></thead>
         <tbody id="auditBids"></tbody>

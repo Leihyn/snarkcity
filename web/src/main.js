@@ -77,7 +77,14 @@ function addSite(status, index) {
   sites.set(status.launchId, { site, status, chip: el, label });
 }
 
+// A static snapshot (deploy/snapshot.ts) shows the city and its audits but
+// cannot take bids or relay claims.
+let snapshot = null;
+
 function apply(data) {
+  snapshot = data.snapshot ?? null;
+  document.body.toggleAttribute('data-snapshot', !!snapshot);
+  if (snapshot) document.getElementById('snapshotNote').textContent = `Snapshot of ${new Date(snapshot.takenAt).toUTCString()}. Browse launches and check their audits; bidding and claiming need the live server.`;
   document.getElementById('zcashTip').textContent = data.zcashTip ? data.zcashTip.toLocaleString('en-US') : '…';
   data.launches.slice(0, SLOTS.length).forEach((s) => {
     const entry = sites.get(s.launchId);
@@ -108,7 +115,9 @@ function detailRows(s) {
       ['Claimed', `${Math.round(litFraction(s) * 100)}%`],
     );
   }
-  if (s.pool) rows.push(['Pool (burned LP)', `${tokens(s.pool.tokens, s.decimals)} tokens + ${(Number(s.pool.lamports) / 1e9).toLocaleString("en-US", { maximumFractionDigits: 4 })} SOL`]);
+  if (s.pool) {
+    rows.push(['Pool (burned LP)', `${tokens(s.pool.tokens, s.decimals)} tokens + ${(Number(s.pool.lamports) / 1e9).toLocaleString("en-US", { maximumFractionDigits: 4 })} SOL`]);
+  }
   return rows.map(([k, v]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
 }
 
@@ -134,8 +143,9 @@ function renderPanel() {
       ${selected === s.launchId ? `
         <p class="note">${esc(phaseNote(s))}</p>
         <dl class="rows">${detailRows(s)}</dl>
-        ${s.phase === 'bidding' ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
-        ${s.phase === 'live' ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}
+        ${s.pool ? '<p class="note">The pool opens at the clearing price. Its SOL is priced by a live NEAR Intents mainnet quote for the ZEC raised; NEAR Intents has no testnet, so the swap is not executed and the creator seeds the SOL.</p>' : ''}
+        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
+        ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}
         ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}">Check the result</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>
         ${s.pool ? `<a class="ext" href="https://explorer.solana.com/address/${esc(s.pool.id)}?cluster=devnet" target="_blank" rel="noopener">Raydium pool on devnet</a>` : ''}` : ''}

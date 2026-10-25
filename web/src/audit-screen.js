@@ -12,7 +12,7 @@ export function auditScreen() {
   let launch = null, timer = null;
 
   async function load(method = 'GET') {
-    const res = await fetch(`/api/audit/${encodeURIComponent(launch.launchId)}`, { method, cache: 'no-store' });
+    const res = await fetch(`/api/audit/${encodeURIComponent(launch.launchId)}/report`, { method, cache: 'no-store' });
     if (!res.ok) throw new Error(`server error ${res.status}`);
     return res.json();
   }
@@ -33,8 +33,9 @@ export function auditScreen() {
     $('auditRerun').disabled = !v.viewingKey || v.running;
     $('auditKey').textContent = v.viewingKey ?? 'Not published yet.';
     const base = `/api/audit/${encodeURIComponent(launch.launchId)}`;
-    $('auditTerms').href = `${base}/terms.json`;
-    $('auditKeyFile').href = `${base}/viewkey.txt`;
+    // `download` names the saved files, so they save on a static host too.
+    Object.assign($('auditTerms'), { href: `${base}/terms.json`, download: v.files.terms });
+    Object.assign($('auditKeyFile'), { href: `${base}/viewkey.txt`, download: v.files.viewKey });
     $('auditKeyFile').hidden = $('auditCopy').hidden = !v.viewingKey;
     $('auditCmd').textContent = auditCommand(v.files);
     clearTimeout(timer);

@@ -122,3 +122,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .envelopes tr.lost td, .envelopes tr.late td { color: var(--muted); }
 .audit-h { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
 .bid-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+
+.snapshot-note { display: none; margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: var(--sodium); max-width: 260px; }
+[data-snapshot] .snapshot-note { display: block; }
+[data-snapshot] #auditRerun { display: none; }

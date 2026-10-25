@@ -10,3 +10,6 @@ node_modules/
 target/
 dist/
 .DS_Store
+
+# Agent worktrees (Claude Code)
+.claude/
