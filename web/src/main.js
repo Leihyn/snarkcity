@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DObject, CSS2DRenderer } from 'three/addons/renderers/CSS2DRenderer.js';
 import { loadAll } from './assets.js';
-import { buildDistrict, SLOTS } from './city.js';
+import { buildDistrict, SLOTS, VIEW } from './city.js';
 import { bidScreen } from './bid-screen.js';
 import { auditScreen } from './audit-screen.js';
 import { claimScreen } from './claim-screen.js';
@@ -20,7 +20,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#1B2233');
 scene.fog = new THREE.Fog('#1B2233', 140, 320);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 900);
-camera.position.set(105, 92, 125);
+camera.position.set(...VIEW);
 const controls = new OrbitControls(camera, canvas);
 controls.target.set(0, 12, 0);
 controls.enableDamping = true;
@@ -179,6 +179,35 @@ canvas.addEventListener('pointerup', (e) => {
   if (hit) select(hit.object.userData.pickKey);
 });
 
+// Labels that would overlap on screen: the nearer one keeps its place and the
+// farther one moves up above it. Positions are recomputed every frame from
+// the projection, so nothing jitters.
+const at = new THREE.Vector3();
+function declutter() {
+  const { clientWidth: w, clientHeight: h } = canvas;
+  const items = [...sites.values()].map(({ label, chip }) => {
+    label.getWorldPosition(at);
+    const dist = at.distanceTo(camera.position);
+    at.project(camera);
+    return { chip, dist, x: (at.x * 0.5 + 0.5) * w, y: (-at.y * 0.5 + 0.5) * h, bw: chip.offsetWidth, bh: chip.offsetHeight };
+  }).sort((a, b) => a.dist - b.dist);
+  const placed = [];
+  items.forEach((it, i) => {
+    let y = it.y;
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const p of placed) {
+        if (Math.abs(it.x - p.x) < (it.bw + p.bw) / 2 + 4 && Math.abs(y - p.y) < (it.bh + p.bh) / 2 + 4) {
+          y = p.y - (it.bh + p.bh) / 2 - 4; moved = true;
+        }
+      }
+    }
+    placed.push({ x: it.x, y, bw: it.bw, bh: it.bh });
+    it.chip.style.marginTop = `${y - it.y}px`;
+    it.chip.style.zIndex = String(items.length - i);
+  });
+}
+
 async function start() {
   resize();
   const fill = document.getElementById('loadingFill');
@@ -202,6 +231,7 @@ async function start() {
     controls.update();
     renderer.render(scene, camera);
     labels.render(scene, camera);
+    declutter();
   });
 }
 

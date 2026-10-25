@@ -30,7 +30,7 @@ export function buildSite(status, seed) {
   };
   parts.sign.mesh.position.set(0, 3.1, PAD / 2 + 0.6);
   g.add(parts.lot.group, parts.fog.group, parts.tower, parts.sign.mesh);
-  g.traverse(o => { if (o.isMesh) o.userData.pickKey = status.launchId; });
+  g.traverse(o => { if (o.isMesh || o.isSprite) o.userData.pickKey = status.launchId; });
 
   let phase = null, reveal = -1, towerKey = '', floors = 0;
   const site = {
@@ -57,7 +57,7 @@ export function buildSite(status, seed) {
       }
       parts.tower.visible = phase === 'live';
       if (phase === 'live' && wasFoggy) { reveal = 0; parts.tower.scale.y = 0.001; parts.fog.group.visible = true; }
-      g.traverse(o => { if (o.isMesh) o.userData.pickKey = next.launchId; });
+      g.traverse(o => { if (o.isMesh || o.isSprite) o.userData.pickKey = next.launchId; });
     },
     tick(dt, t) {
       parts.fog.drift(t);
@@ -100,12 +100,15 @@ function fogCloud(seed) {
       const rail = box(w, 0.18, d, pole); rail.position.set(x, y, z); group.add(rail);
     });
   }
-  const mat = new THREE.MeshStandardMaterial({ color: '#D9DEE8', transparent: true, opacity: 0.55, roughness: 1, depthWrite: false });
+  // Soft camera-facing puffs, kept inside the pad so neighbouring sites
+  // never merge into one cloud.
+  const mat = new THREE.SpriteMaterial({ map: puffTexture(), color: '#E4E8F0', transparent: true, opacity: 0.8, depthWrite: false });
   const puffs = [];
-  for (let k = 0; k < 46; k++) {
-    const s = 3 + r() * 4.5;
-    const m = new THREE.Mesh(new THREE.SphereGeometry(s, 14, 10), mat);
-    const a = r() * Math.PI * 2, rad = 3 + r() * 5, y = 2 + r() * (H + 2);
+  for (let k = 0; k < 60; k++) {
+    const s = 10 + r() * 7;
+    const m = new THREE.Sprite(mat);
+    m.scale.set(s, s, 1);
+    const a = r() * Math.PI * 2, rad = 2 + r() * 4.5, y = 2 + r() * (H + 1);
     m.position.set(Math.cos(a) * rad, y, Math.sin(a) * rad);
     m.userData = { a, rad, y, speed: 0.05 + r() * 0.08, bob: r() * 6 };
     group.add(m); puffs.push(m);
@@ -120,8 +123,22 @@ function fogCloud(seed) {
         p.position.y = y + Math.sin(t * 0.4 + bob) * 0.6;
       }
     },
-    fade(k) { mat.opacity = 0.55 * k; },
+    fade(k) { mat.opacity = 0.8 * k; },
   };
+}
+
+let puff = null;
+function puffTexture() {
+  if (puff) return puff;
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.55)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+  puff = new THREE.CanvasTexture(c); puff.colorSpace = THREE.SRGBColorSpace;
+  return puff;
 }
 
 function buildTower(floors, lit, seed) {

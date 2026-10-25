@@ -10,6 +10,9 @@ export const BLOCK = 20, PITCH = 25, TILE = 5;
 const LINES = [-62.5, -37.5, -12.5, 12.5, 37.5, 62.5];
 // Block coordinates for launch sites, nearest the plaza first.
 export const SLOTS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [1, -1], [-1, 1]];
+// Where the camera starts. Tall filler only goes on the far half of the
+// district, so nothing stands between this view and a launch.
+export const VIEW = [105, 92, 125];
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: new THREE.Color(color), roughness: 0.9 }, o));
 
@@ -37,9 +40,10 @@ export function buildDistrict(slotCount) {
     pad.position.set(cx, 0.125, cz); pad.receiveShadow = true; group.add(pad);
     if (i === 0 && j === 0) { addPlaza(group, cx, cz, r); continue; }
     if (taken.has(`${i},${j}`)) continue;
-    // Next to the plaza only low buildings, so launches stand out.
-    const inner = Math.abs(i) <= 1 && Math.abs(j) <= 1;
-    if (r() < 0.16) addPark(group, cx, cz, r); else addFiller(group, cx, cz, r, inner);
+    // Next to the plaza and in front of the view only low buildings, so
+    // launches stand out and none is hidden.
+    const low = (Math.abs(i) <= 1 && Math.abs(j) <= 1) || i * VIEW[0] + j * VIEW[2] > 0;
+    if (r() < 0.16) addPark(group, cx, cz, r); else addFiller(group, cx, cz, r, low);
   }
 
   const skyline = ['low-detail-building-a', 'low-detail-building-b', 'low-detail-building-c', 'low-detail-building-d', 'low-detail-building-e', 'low-detail-building-f', 'low-detail-building-g', 'low-detail-building-h', 'low-detail-building-wide-a', 'low-detail-building-wide-b'];
@@ -85,10 +89,10 @@ function addPlaza(group, cx, cz, r) {
   r();
 }
 
-function addFiller(group, cx, cz, r, inner) {
+function addFiller(group, cx, cz, r, low) {
   const tall = ['building-skyscraper-a', 'building-skyscraper-b', 'building-skyscraper-c', 'building-skyscraper-d', 'building-skyscraper-e'];
   const small = ['building-a', 'building-b', 'building-c', 'building-d', 'building-f', 'building-g', 'building-h', 'building-l', 'building-m'];
-  if (!inner && r() < 0.5) {
+  if (!low && r() < 0.5) {
     const b = model(tall[Math.floor(r() * tall.length)], 9); b.position.set(cx - 3, 0.25, cz - 3); b.rotation.y = Math.floor(r() * 4) * Math.PI / 2; group.add(b);
     const c = model(small[Math.floor(r() * small.length)], 8); c.position.set(cx + 5, 0.25, cz + 5); c.rotation.y = Math.PI; group.add(c);
     return;
