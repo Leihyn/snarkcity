@@ -7,8 +7,9 @@ import { join } from "node:path";
 import { parseBidMemo } from "../../auction/src/memo.ts";
 import type { LaunchParams } from "../../auction/src/clearing.ts";
 import { audit, type AuditReport } from "./audit.ts";
-import { readReceived, readSent, type Window } from "./bids.ts";
+import { readReceived, readSent, type ReceivedOutput, type Window } from "./bids.ts";
 import { initWatchOnly, receivers, refresh } from "./devtool.ts";
+import { drandSignature, unseal, type Seal } from "./sealed.ts";
 
 export interface AuditRun {
   devtool: string; // zcash-devtool binary
@@ -17,6 +18,7 @@ export interface AuditRun {
   window: Window;
   params: LaunchParams;
   publishedRoot: string | null;
+  seal?: Seal; // sealed launch: the auditor opens the bids with drand, independently
 }
 
 export async function runAudit(run: AuditRun): Promise<AuditReport> {
@@ -24,13 +26,13 @@ export async function runAudit(run: AuditRun): Promise<AuditReport> {
   if (!existsSync(join(run.dir, "data.sqlite"))) await initWatchOnly(wallet, run.ufvk, run.window.startHeight - 1);
   await refresh(wallet);
   const db = join(run.dir, "data.sqlite");
-  const received = readReceived(db);
+  const received = await openSealed(readReceived(db), run.seal);
   const sent = readSent(db);
   const decoded = await decodeAll(run.devtool, received.map((r) => r.memo), sent.map((s) => s.toAddress));
   return audit({
     received,
     sent,
-    window: run.window,
+    window: { ...run.window, ...(run.seal && { sealedUntil: run.seal.revealAt }) },
     params: run.params,
     publishedRoot: run.publishedRoot,
     sameRecipient: (paidTo, named) => {
@@ -38,6 +40,13 @@ export async function runAudit(run: AuditRun): Promise<AuditReport> {
       return (decoded.get(paidTo) ?? [paidTo]).every((r) => ofNamed.has(r));
     },
   });
+}
+
+async function openSealed(received: ReceivedOutput[], seal?: Seal): Promise<ReceivedOutput[]> {
+  if (!seal) return received;
+  const signature = await drandSignature(seal.round);
+  if (signature === null) throw new Error(`bids are still sealed until drand round ${seal.round}`);
+  return unseal(received, seal, signature);
 }
 
 // Decode every address involved once, so the audit itself stays synchronous.

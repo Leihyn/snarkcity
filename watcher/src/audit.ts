@@ -35,6 +35,16 @@ export interface PayoutCheck {
   txid?: string;
 }
 
+// One bid as the opened auction shows it: what it offered and what it got. No
+// addresses or keys, so the page can show every bid after the close.
+export interface Envelope {
+  maxPrice: bigint;
+  amountZats: bigint;
+  tokens: bigint;
+  refundZats: bigint;
+  late: boolean;
+}
+
 export interface AuditReport {
   bids: number;
   rejected: number;
@@ -44,6 +54,7 @@ export interface AuditReport {
   root: string | null;
   rootMatches: boolean;
   payouts: PayoutCheck[];
+  envelopes: Envelope[]; // every bid, highest price first
   ok: boolean; // root matches and every owed payout is confirmed (or had no address)
 }
 
@@ -63,8 +74,17 @@ export function audit(input: AuditInput): AuditReport {
     root: s.root,
     rootMatches,
     payouts,
+    envelopes: envelopesOf(scan, s.outcomes),
     ok: rootMatches && payouts.every((p) => p.status === "paid" || p.status === "no address"),
   };
+}
+
+function envelopesOf(scan: ReturnType<typeof scanBids>, outcomes: { tokens: bigint; refundZats: bigint }[]): Envelope[] {
+  const counted = scan.bids.map((b, i) => ({ maxPrice: b.maxPrice, amountZats: b.amountZats, tokens: outcomes[i].tokens, refundZats: outcomes[i].refundZats, late: false }));
+  const late = scan.rejected
+    .filter((r) => r.reason === "outside window" && r.maxPrice !== undefined)
+    .map((r) => ({ maxPrice: r.maxPrice!, amountZats: r.valueZats, tokens: 0n, refundZats: r.valueZats, late: true }));
+  return [...counted, ...late].sort((a, b) => (a.maxPrice === b.maxPrice ? 0 : a.maxPrice > b.maxPrice ? -1 : 1));
 }
 
 function checkPayout(

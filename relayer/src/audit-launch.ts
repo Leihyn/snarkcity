@@ -19,6 +19,7 @@ export async function auditLaunch(terms: PublicTerms, ufvk: string, dir: string,
     window: { startHeight: terms.startHeight, endHeight: terms.endHeight },
     params: { supply: BigInt(terms.supply), decimals: terms.decimals, reservePrice: BigInt(terms.reservePrice) },
     publishedRoot: onChain.root,
+    ...(terms.seal && { seal: terms.seal }),
   });
   const allocatedMatches = onChain.allocated === report.tokensSold;
   const supplyMatches = onChain.supply === BigInt(terms.supply) && onChain.mint === terms.mint;

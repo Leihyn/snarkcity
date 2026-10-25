@@ -4,10 +4,13 @@
 
 import { renderSVG } from 'uqr';
 import { bidFile, bidFileName, bidMemo, checkBid, formatZec, makeClaimKey, paymentUri, timing } from './bid.js';
+import { DRAND, sealBid } from './seal.js';
 import { tokens, zec } from './view-model.js';
 
 const $ = (id) => document.getElementById(id);
 const STEPS = ['terms', 'save', 'pay'];
+
+const sealTime = (l) => new Date(l.seal.revealAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 export function bidScreen() {
   const dialog = $('bid'), form = $('bidForm');
@@ -46,11 +49,24 @@ export function bidScreen() {
     const bid = showSummary();
     if (bid.problem || !timing(launch).open) return;
     const key = await makeClaimKey();
-    const memo = bidMemo({ commitment: key.commitment, ...bid });
+    const memo = await memoFor(key, bid);
+    if (!memo) return;
     draft = { key, bid, memo, uri: paymentUri(launch.bidAddress, bid.amountZats, memo) };
     $('bidCommit').textContent = key.commitment;
     step('save');
   });
+
+  // Sealed launches: the bid is time-locked to drand, so only the pinned drand
+  // network's round can open it. Anything else in the terms is refused.
+  async function memoFor(key, bid) {
+    if (!launch.seal) return bidMemo({ commitment: key.commitment, ...bid });
+    if (launch.seal.chainHash !== DRAND.chainHash) {
+      $('bidSummary').textContent = 'This launch names an unknown seal, so this page will not seal a bid to it.';
+      $('bidSummary').classList.add('problem');
+      return null;
+    }
+    return sealBid({ commitment: key.commitment, maxPrice: bid.maxPrice, refundTo: bid.refundTo }, launch.seal.round);
+  }
 
   $('bidSave').addEventListener('click', () => {
     const file = bidFile(draft.key, launch, draft.bid, draft.memo);
@@ -65,7 +81,11 @@ export function bidScreen() {
     $('bidQr').innerHTML = renderSVG(draft.uri, { border: 2 });
     $('bidAddr').textContent = launch.bidAddress;
     $('bidAmount').textContent = `${formatZec(draft.bid.amountZats)} ZEC`;
-    $('bidMemo').textContent = draft.memo;
+    const sealed = typeof draft.memo !== 'string';
+    $('bidMemo').textContent = sealed
+      ? `Sealed bid, ${draft.memo.length} bytes. It opens at ${sealTime(launch)}; until then nobody can read it, SnarkCity included. It travels only in the payment link.`
+      : draft.memo;
+    dialog.querySelector('[data-copy="bidMemo"]').hidden = sealed;
     $('bidOpen').href = draft.uri;
     $('bidCli').textContent = `zcash-devtool wallet -w <your wallet> pay -i <identity> --payment-uri '${draft.uri}'`;
     showTiming();
@@ -93,6 +113,8 @@ export function bidScreen() {
       $('bidName').textContent = status.name;
       $('bidReserve').textContent = `${zec(status.reservePrice)} ZEC per token`;
       $('bidSupply').textContent = `${tokens(status.supply, status.decimals)} tokens`;
+      $('bidSealed').hidden = !status.seal;
+      if (status.seal) $('bidSealed').textContent = `Sealed with drand: your price, refund address and claim-key fingerprint stay encrypted until ${sealTime(status)}, when the drand network publishes the key. Nobody can read them before then, SnarkCity included. The amount you send is not sealed: the launch wallet sees it arrive.`;
       step('terms');
       showSummary();
       dialog.showModal();

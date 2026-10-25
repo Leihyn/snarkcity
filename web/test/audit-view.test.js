@@ -48,3 +48,19 @@ test("the run-it-yourself command uses the downloaded file names", () => {
     "node relayer/scripts/audit-launch.ts hollow.public.json hollow.viewkey.txt ./audit-wallet <path to zcash-devtool>",
   );
 });
+
+test("opened bids are labelled by the clearing price", async () => {
+  const { envelopeRows } = await import("../src/audit-view.js");
+  const report = { ...good, price: { num: "300", den: "1" }, envelopes: [
+    { maxPrice: "600", amountZats: "100000", tokens: "0", refundZats: "100000", late: true },
+    { maxPrice: "500", amountZats: "300000", tokens: "1000000000", refundZats: "0", late: false },
+    { maxPrice: "300", amountZats: "200000", tokens: "333333334", refundZats: "99999", late: false },
+    { maxPrice: "200", amountZats: "100000", tokens: "0", refundZats: "100000", late: false },
+  ] };
+  const rows = envelopeRows(report, 6);
+  assert.deepEqual(rows.map((r) => r.outcome), ["late", "won", "partial", "lost"]);
+  assert.equal(rows[1].tokens, "1,000");
+  assert.equal(rows[2].refund, "0.00099999 ZEC");
+  assert.equal(rows[0].maxPrice, "0.000006 ZEC");
+  assert.deepEqual(envelopeRows({ ...good, envelopes: undefined }, 6), [], "older reports have no list");
+});

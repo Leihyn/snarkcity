@@ -1,7 +1,7 @@
 // The audit dialog: shows the last public audit of a launch, its viewing key,
 // and how to run the same check yourself. Polls while an audit is running.
 
-import { auditCommand, auditRows, verdict } from './audit-view.js';
+import { auditCommand, auditRows, envelopeRows, verdict } from './audit-view.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -28,6 +28,7 @@ export function auditScreen() {
     else if (v.error) setVerdict(`The check could not finish: ${v.error}`, 'bad');
     else if (v.report) { const r = verdict(v.report); setVerdict(r.text, r.ok ? 'ok' : 'bad'); }
     $('auditRows').innerHTML = v.report ? auditRows(v.report, launch.decimals).map(([k, x]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('') : '';
+    showEnvelopes(v.report);
     $('auditWhen').textContent = v.checkedAt ? `Last checked ${new Date(v.checkedAt).toLocaleString()}.` : '';
     $('auditRerun').disabled = !v.viewingKey || v.running;
     $('auditKey').textContent = v.viewingKey ?? 'Not published yet.';
@@ -38,6 +39,12 @@ export function auditScreen() {
     $('auditCmd').textContent = auditCommand(v.files);
     clearTimeout(timer);
     if (v.running && dialog.open) timer = setTimeout(() => refresh(), POLL_MS);
+  }
+
+  function showEnvelopes(report) {
+    const rows = report ? envelopeRows(report, launch.decimals) : [];
+    $('auditEnvelopes').hidden = rows.length === 0;
+    $('auditBids').innerHTML = rows.map((r) => `<tr class="${r.outcome}"><td>${esc(r.maxPrice)}</td><td>${esc(r.amount)}</td><td>${esc(r.tokens)}</td><td>${esc(r.refund)}</td><td>${esc(r.label)}</td></tr>`).join('');
   }
 
   async function refresh(method) {

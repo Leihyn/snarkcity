@@ -5,9 +5,18 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import type { PoolRecord } from "./pool.ts";
 
+// Sealed launches: bids are time-locked to a drand round (web/src/seal.js).
+export interface SealTerms {
+  round: number; // drand quicknet round the bids open at
+  revealAt: number; // unix time drand publishes it; bids mined at or after it are late
+  chainHash: string; // drand quicknet, pinned in seal.js
+}
+
 export interface LaunchFile {
   name: string;
   kind: "memecoin" | "startup";
+  sealed?: boolean; // seal bids with drand (set before opening)
+  seal?: SealTerms; // filled by open-launch for sealed launches
   zcash: {
     devtool: string;
     walletDir: string; // a fresh wallet for this launch only
@@ -43,6 +52,7 @@ export interface PublicTerms {
   creator: string;
   launchId: string;
   pool?: PoolRecord;
+  seal?: SealTerms;
 }
 
 // A bid can take several blocks to be mined after it is sent. With a short
@@ -73,8 +83,8 @@ export function publicTerms(l: LaunchFile, programId: string): PublicTerms {
   if (!address || startHeight === undefined || endHeight === undefined || !mint || !creator || !launchId) {
     throw new Error("launch is not open yet");
   }
-  const pool = l.solana.pool && { pool: l.solana.pool };
-  return { name: l.name, kind: l.kind, bidAddress: address, startHeight, endHeight, ...l.sale, programId, rpc: l.solana.rpc, mint, creator, launchId, ...pool };
+  const extra = { ...(l.solana.pool && { pool: l.solana.pool }), ...(l.seal && { seal: l.seal }) };
+  return { name: l.name, kind: l.kind, bidAddress: address, startHeight, endHeight, ...l.sale, programId, rpc: l.solana.rpc, mint, creator, launchId, ...extra };
 }
 
 export const expandHome = (p: string) => p.replace(/^~(?=\/)/, homedir());

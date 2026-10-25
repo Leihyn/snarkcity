@@ -75,3 +75,25 @@ test("bidders are warned when the window is nearly closed", () => {
   assert.equal(timing({ ...launch, phase: "lot", blocksToStart: 6 }).open, false);
   assert.equal(timing({ ...launch, phase: "settling" }).open, false);
 });
+
+test("sealed launches: bytes in the payment link, bid file keeps them, bidding stops at the seal", async () => {
+  const { sealBid } = await import("../src/seal.js");
+  const memo = await sealBid({ commitment: "ab".repeat(32), maxPrice: 300n, refundTo: UA }, 30000000);
+  const uri = paymentUri("utest1launch", 200000n, memo);
+  const sent = Buffer.from(new URL(uri.replace("zcash:", "zcash://")).searchParams.get("memo"), "base64url");
+  assert.deepEqual(new Uint8Array(sent), memo, "the link carries the exact sealed bytes");
+  const key = await makeClaimKey();
+  const file = bidFile(key, { ...launch, seal: { round: 30000000, revealAt: 1800000000, chainHash: "x" } }, checkBid({ price: "0.000003", amount: "0.002", refundTo: UA }, launch), memo);
+  assert.equal(file.memoHex.length, memo.length * 2);
+  assert.equal(file.memo, undefined);
+  assert.equal(file.launch.seal.round, 30000000);
+
+  const sealed = { ...launch, seal: { round: 1, revealAt: 1000, chainHash: "x" } };
+  assert.equal(timing(sealed, 1000).open, false, "closed once the seal opens");
+  assert.match(timing(sealed, 1000).note, /seal has opened/);
+  const soon = timing(sealed, 1000 - 120);
+  assert.equal(soon.open, true);
+  assert.equal(soon.late, true);
+  assert.match(soon.note, /under 2 minutes/);
+  assert.match(timing({ ...launch, blocksLeft: 20, blockSeconds: 30 }, 0).note, /about 10 minutes/, "uses measured block speed");
+});

@@ -4,21 +4,25 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { decodeMemo, readReceived, scanBids, type ReceivedOutput } from "../src/bids.ts";
+import { decodeMemo, readReceived, recentBlockSeconds, scanBids, type ReceivedOutput } from "../src/bids.ts";
 import { settle } from "../src/settle.ts";
 import { verifyProof } from "../../auction/src/merkle.ts";
 
 const C1 = "11".repeat(32);
 const C2 = "22".repeat(32);
 
-// A stand-in for zcash-devtool's wallet DB with the same v_tx_outputs columns.
-function fakeWalletDb(rows: (Buffer | number | string | null)[][]): string {
+// A stand-in for zcash-devtool's wallet DB with the same v_tx_outputs columns,
+// and its blocks table (height, time) for the heights used.
+function fakeWalletDb(rows: (Buffer | number | string | null)[][], blockTimes: [number, number][] = []): string {
   const path = join(mkdtempSync(join(tmpdir(), "sc-watch-")), "data.sqlite");
   const db = new DatabaseSync(path);
   db.exec(`CREATE TABLE v_tx_outputs (txid BLOB, output_index INT, tx_mined_height INT, value INT,
            memo BLOB, to_account_uuid TEXT, is_change INT)`);
+  db.exec("CREATE TABLE blocks (height INTEGER PRIMARY KEY, time INTEGER NOT NULL)");
   const ins = db.prepare("INSERT INTO v_tx_outputs VALUES (?, ?, ?, ?, ?, ?, ?)");
   for (const r of rows) ins.run(...r);
+  const blk = db.prepare("INSERT INTO blocks VALUES (?, ?)");
+  for (const b of blockTimes) blk.run(...b);
   db.close();
   return path;
 }
@@ -29,12 +33,14 @@ test("reads received outputs, reversing txids to display order and skipping chan
     [stored, 0, 100, 1_000_000, Buffer.from(`SC1 BID c=${C1} p=8`), "acct", 0],
     [stored, 1, 100, 500, Buffer.from("change"), "acct", 1],
     [stored, 2, 100, 700, Buffer.from("sent"), null, 0],
-  ]);
+  ], [[100, 1_790_000_000]]);
   const out = readReceived(path);
   assert.equal(out.length, 1);
   assert.equal(out[0].txid, "00".repeat(30) + "1c4a");
   assert.equal(out[0].valueZats, 1_000_000n);
   assert.equal(out[0].memo, `SC1 BID c=${C1} p=8`);
+  assert.equal(out[0].minedTime, 1_790_000_000, "block time joined from blocks");
+  assert.deepEqual(Buffer.from(out[0].memoBytes!), Buffer.from(`SC1 BID c=${C1} p=8`), "raw memo kept");
 });
 
 test("non-text memos decode to null (ZIP 302)", () => {
@@ -100,4 +106,10 @@ test("the root does not depend on the order bids arrived in", () => {
   ];
   const p = { supply: 100n, decimals: 0, reservePrice: 1n };
   assert.equal(settle(bids, p).root, settle([...bids].reverse(), p).root);
+});
+
+test("block speed is measured from the wallet's own block times", () => {
+  const times: [number, number][] = Array.from({ length: 30 }, (_, i) => [1000 + i, 5000 + i * 28]);
+  assert.equal(recentBlockSeconds(fakeWalletDb([], times)), 28);
+  assert.equal(recentBlockSeconds(fakeWalletDb([], [[1, 0], [2, 75]])), null, "too few blocks to say");
 });

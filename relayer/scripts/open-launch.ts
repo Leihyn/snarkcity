@@ -12,7 +12,13 @@ import { join } from "node:path";
 import { readReceived } from "../../watcher/src/bids.ts";
 import { chainTip, defaultAddress, refresh } from "../../watcher/src/devtool.ts";
 import { createLaunch, loadKeypair, program, PROGRAM_ID } from "../src/client.ts";
+import { DRAND, roundAt, roundTime } from "../../web/src/seal.js";
 import { expandHome, launchProblems, publicTerms, readLaunch, writeJson } from "../src/launch-file.ts";
+
+// Zcash's target block time. The seal opens when the window is expected to
+// close at this pace; if blocks run slow, bids mined after it opens are late
+// (see bids.ts), so opening early never lets anyone act on what it reveals.
+const TARGET_BLOCK_SECONDS = 75;
 
 const path = process.argv[2];
 const launch = readLaunch(path);
@@ -45,6 +51,10 @@ launch.zcash.address = await defaultAddress(wallet);
 launch.zcash.startHeight = tip + 1;
 launch.zcash.endHeight = tip + launch.zcash.biddingBlocks;
 Object.assign(launch.solana, { mint: mint.toBase58(), creator: creator.publicKey.toBase58(), launchId: launchId.toString() });
+if (launch.sealed) {
+  const round = roundAt(Math.floor(Date.now() / 1000) + launch.zcash.biddingBlocks * TARGET_BLOCK_SECONDS);
+  launch.seal = { round, revealAt: roundTime(round), chainHash: DRAND.chainHash };
+}
 writeJson(path, launch);
 const publicPath = path.replace(/\.json$/, ".public.json");
 writeJson(publicPath, publicTerms(launch, PROGRAM_ID.toBase58()));
@@ -52,4 +62,5 @@ writeJson(publicPath, publicTerms(launch, PROGRAM_ID.toBase58()));
 console.log(`${launch.name} (${launch.kind}) is open`);
 console.log(`  supply locked on Solana: ${supply} base units of ${mint.toBase58()} (tx ${sig})`);
 console.log(`  bids: Zcash blocks ${launch.zcash.startHeight}..${launch.zcash.endHeight} to ${launch.zcash.address.slice(0, 24)}…`);
+if (launch.seal) console.log(`  bids sealed to drand round ${launch.seal.round}, which opens at ${new Date(launch.seal.revealAt * 1000).toISOString()}`);
 console.log(`  public terms: ${publicPath}`);

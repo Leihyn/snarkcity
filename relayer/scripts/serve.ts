@@ -22,6 +22,7 @@ import { Connection, Keypair, PublicKey } from "@solana/web3.js";
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { extname, join, normalize, resolve, sep } from "node:path";
+import { recentBlockSeconds } from "../../watcher/src/bids.ts";
 import { chainTip, refresh } from "../../watcher/src/devtool.ts";
 import { fetchLaunch, loadKeypair, program, type LaunchState } from "../src/client.ts";
 import { expandHome, type PublicTerms } from "../src/launch-file.ts";
@@ -38,11 +39,13 @@ const terms = (p: string): PublicTerms => JSON.parse(readFileSync(p, "utf8"));
 
 // Zcash height: refreshed in the background so requests never wait on the chain.
 let zcashTip = 0;
+let blockSeconds: number | null = null;
 async function pollTip() {
   const wallet = { bin: cfg.devtool, dir: at(cfg.tipWallet) };
   try {
     await refresh(wallet);
     zcashTip = await chainTip(wallet);
+    blockSeconds = recentBlockSeconds(join(wallet.dir, "data.sqlite"));
   } catch (e) {
     console.error(`zcash height not updated: ${(e as Error).message.split("\n")[0]}`);
   }
@@ -76,7 +79,7 @@ function settlementOf(publicPath: string): SettlementSummary | null {
 async function launches() {
   return Promise.all(launchPaths.map(async (p) => {
     const t = terms(p);
-    return launchStatus(t, zcashTip, await onChain(t), settlementOf(p));
+    return { ...launchStatus(t, zcashTip, await onChain(t), settlementOf(p)), ...(blockSeconds && { blockSeconds }) };
   }));
 }
 

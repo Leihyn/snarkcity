@@ -46,12 +46,13 @@
         <div class="row"><dt>Reserve price</dt><dd id="bidReserve"></dd></div>
         <div class="row"><dt>For sale</dt><dd id="bidSupply"></dd></div>
       </dl>
+      <p class="bid-fine bid-sealed" id="bidSealed" hidden></p>
       <form id="bidForm" autocomplete="off" novalidate>
         <label>Highest price you will pay <small>ZEC per token</small>
           <input name="price" inputmode="decimal" placeholder="0.000004" required></label>
         <label>Amount to send <small>ZEC</small>
           <input name="amount" inputmode="decimal" placeholder="0.002" required></label>
-        <label>Refund address <small>your Zcash testnet address</small>
+        <label>Refund address <small>a fresh Zcash testnet address, used for nothing else</small>
           <input name="refundTo" spellcheck="false" placeholder="utest1…" required></label>
         <p class="bid-summary" id="bidSummary" aria-live="polite"></p>
         <button type="submit" class="btn">Create bid</button>
@@ -105,6 +106,14 @@
     <p class="bid-fine">Bids are private, but the result is not taken on trust. With the launch's viewing key, anyone can re-run the auction from the Zcash chain and compare it with what Solana pays out.</p>
     <p class="audit-verdict" id="auditVerdict" role="status"></p>
     <dl class="rows" id="auditRows"></dl>
+    <div id="auditEnvelopes" hidden>
+      <h3 class="audit-h">The opened bids</h3>
+      <p class="bid-fine">Every bid, highest price first, with what it got. Bids are anonymous: no addresses or keys.</p>
+      <div class="envelopes-wrap"><table class="envelopes">
+        <thead><tr><th>Max price</th><th>Sent</th><th>Tokens</th><th>Refund</th><th>Outcome</th></tr></thead>
+        <tbody id="auditBids"></tbody>
+      </table></div>
+    </div>
     <p class="bid-fine" id="auditWhen"></p>
     <button type="button" class="btn ghost" id="auditRerun">Check again</button>
     <h3 class="audit-h">Viewing key</h3>

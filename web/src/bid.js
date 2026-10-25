@@ -62,9 +62,11 @@ function base64url(bytes) {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-// ZIP 321 payment request: a wallet that scans it fills in address, amount and memo.
+// ZIP 321 payment request: a wallet that scans it fills in address, amount and
+// memo. The memo is text, or bytes for a sealed bid.
 export function paymentUri(address, amountZats, memo) {
-  return `zcash:${address}?amount=${formatZec(amountZats)}&memo=${base64url(new TextEncoder().encode(memo))}`;
+  const bytes = typeof memo === 'string' ? new TextEncoder().encode(memo) : memo;
+  return `zcash:${address}?amount=${formatZec(amountZats)}&memo=${base64url(bytes)}`;
 }
 
 // A fresh ed25519 claim key (the key type Solana uses) and a random salt,
@@ -83,11 +85,11 @@ export async function makeClaimKey(crypto = globalThis.crypto) {
 export function bidFile(key, launch, bid, memo) {
   return {
     ...key,
-    launch: { name: launch.name, launchId: launch.launchId, programId: launch.programId, mint: launch.mint, bidAddress: launch.bidAddress, endHeight: launch.endHeight },
+    launch: { name: launch.name, launchId: launch.launchId, programId: launch.programId, mint: launch.mint, bidAddress: launch.bidAddress, endHeight: launch.endHeight, ...(launch.seal && { seal: launch.seal }) },
     maxPrice: bid.maxPrice.toString(),
     amountZats: bid.amountZats.toString(),
     refundTo: bid.refundTo,
-    memo,
+    ...(typeof memo === 'string' ? { memo } : { memoHex: [...memo].map((b) => b.toString(16).padStart(2, '0')).join('') }),
     createdAt: new Date().toISOString(),
   };
 }
@@ -96,12 +98,21 @@ export function bidFileName(launch, commitment) {
   return `snarkcity-bid-${launch.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${commitment.slice(0, 8)}.json`;
 }
 
-// What the bidder is told about timing.
-export function timing(launch) {
+// Seconds per block, measured by the server when it can, else Zcash's 75 s target.
+const blockSeconds = (launch) => launch.blockSeconds ?? 75;
+// A sealed launch stops taking bids when its seal opens, if that comes first.
+const SEAL_MARGIN_SECONDS = 300;
+
+// What the bidder is told about timing. `now` is unix seconds.
+export function timing(launch, now = Date.now() / 1000) {
   if (launch.phase === 'lot') return { open: false, note: `Bidding opens in ${launch.blocksToStart} blocks. A bid mined before then is refunded.` };
   if (launch.phase !== 'bidding') return { open: false, note: 'Bidding has closed.' };
+  if (launch.seal && now >= launch.seal.revealAt) return { open: false, note: 'The seal has opened, so bidding has closed: a bid mined now would be refunded as late.' };
+  if (launch.seal && launch.seal.revealAt - now < SEAL_MARGIN_SECONDS) {
+    return { open: true, late: true, note: `The seal opens in under ${Math.ceil((launch.seal.revealAt - now) / 60)} minutes. A bid mined after that is refunded as late.` };
+  }
   if (launch.blocksLeft < LATE_BID_MARGIN) {
     return { open: true, late: true, note: `Only ${launch.blocksLeft} block${launch.blocksLeft === 1 ? '' : 's'} left. A payment can take a few blocks to be mined; if yours lands after block ${launch.endHeight.toLocaleString('en-US')} it is refunded, not counted.` };
   }
-  return { open: true, late: false, note: `${launch.blocksLeft} blocks left (about ${Math.round(launch.blocksLeft * 75 / 60)} minutes). Bids mined after block ${launch.endHeight.toLocaleString('en-US')} are refunded.` };
+  return { open: true, late: false, note: `${launch.blocksLeft} blocks left (about ${Math.max(1, Math.round(launch.blocksLeft * blockSeconds(launch) / 60))} minutes). Bids mined after block ${launch.endHeight.toLocaleString('en-US')} are refunded.` };
 }

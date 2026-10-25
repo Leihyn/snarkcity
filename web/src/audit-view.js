@@ -36,3 +36,24 @@ export function auditRows(report, decimals) {
 export function auditCommand(files) {
   return `node relayer/scripts/audit-launch.ts ${files.terms} ${files.viewKey} ./audit-wallet <path to zcash-devtool>`;
 }
+
+// The opened bids for the results table: highest price first, each with what
+// it offered and what happened to it. Outcome follows the clearing price:
+// above it wins in full, at it is the marginal bid, below it loses.
+export function envelopeRows(report, decimals) {
+  const price = report.price ? Number(report.price.num) / Number(report.price.den) : null;
+  return (report.envelopes ?? []).map((e) => {
+    const p = Number(e.maxPrice);
+    const outcome = e.late ? 'late'
+      : price === null || BigInt(e.tokens) === 0n ? 'lost'
+      : p > price || BigInt(e.refundZats) === 0n ? 'won' : 'partial';
+    return {
+      outcome,
+      label: { won: 'Won in full', partial: 'Partly filled', lost: 'Lost, refunded', late: 'Late, refunded' }[outcome],
+      maxPrice: `${zec(e.maxPrice)} ZEC`,
+      amount: `${zec(e.amountZats)} ZEC`,
+      tokens: BigInt(e.tokens) > 0n ? tokens(e.tokens, decimals) : '-',
+      refund: BigInt(e.refundZats) > 0n ? `${zec(e.refundZats)} ZEC` : '-',
+    };
+  });
+}

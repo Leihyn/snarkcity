@@ -101,6 +101,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .bid-summary a { color: inherit; }
 .bid-fine { color: var(--muted); font-size: 12px; }
 .bid-fine summary { cursor: pointer; }
+.bid-sealed { color: var(--live); margin-top: 0; }
 .bid-code { display: block; font-family: var(--mono); font-size: 12px; word-break: break-all; background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; margin: 6px 0; }
 .bid-qr { width: min(260px, 100%); margin: 8px auto 12px; background: #fff; border-radius: 10px; padding: 6px; }
 .bid-qr svg { display: block; width: 100%; height: auto; }
@@ -112,5 +113,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .audit-verdict { margin: 12px 0; padding: 10px 12px; border-radius: 8px; background: var(--felt-2); line-height: 1.45; }
 .audit-verdict.ok { color: var(--live); }
 .audit-verdict.bad { color: var(--sodium); background: var(--sodium-soft); }
+.envelopes-wrap { overflow-x: auto; }
+.envelopes { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
+.envelopes th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.envelopes td { padding: 5px 6px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.envelopes tr.won td:last-child { color: var(--live); }
+.envelopes tr.partial td:last-child { color: var(--sodium); }
+.envelopes tr.lost td, .envelopes tr.late td { color: var(--muted); }
 .audit-h { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
 .bid-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }

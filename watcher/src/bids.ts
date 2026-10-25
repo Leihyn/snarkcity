@@ -13,11 +13,16 @@ export interface ReceivedOutput {
   minedHeight: number | null;
   valueZats: bigint;
   memo: string | null;
+  memoBytes?: Uint8Array | null; // raw memo, for sealed (binary) bids
+  minedTime?: number | null; // unix time of the block it was mined in
 }
 
 export interface Window {
   startHeight: number; // first block that accepts bids
   endHeight: number; // last block that accepts bids
+  // Sealed launches: once the bids can be opened, later bids could be placed
+  // knowing them, so a bid mined in a block at or after this unix time is late.
+  sealedUntil?: number;
 }
 
 export interface Rejected {
@@ -25,6 +30,7 @@ export interface Rejected {
   valueZats: bigint;
   reason: "unmined" | "outside window" | "no bid memo";
   refundTo?: string; // set when the memo is a valid bid, so a late bid can be refunded
+  maxPrice?: bigint; // likewise, so the opened bids can be shown in full
 }
 
 export interface BidScan {
@@ -33,9 +39,9 @@ export interface BidScan {
 }
 
 const QUERY = `
-  SELECT txid, output_index, tx_mined_height, value, memo
-  FROM v_tx_outputs
-  WHERE to_account_uuid IS NOT NULL AND is_change = 0`;
+  SELECT o.txid, o.output_index, o.tx_mined_height, o.value, o.memo, b.time AS mined_time
+  FROM v_tx_outputs o LEFT JOIN blocks b ON b.height = o.tx_mined_height
+  WHERE o.to_account_uuid IS NOT NULL AND o.is_change = 0`;
 
 export function readReceived(dbPath: string): ReceivedOutput[] {
   return queryRows(dbPath, QUERY).map((r) => ({
@@ -44,6 +50,8 @@ export function readReceived(dbPath: string): ReceivedOutput[] {
     minedHeight: heightOf(r.tx_mined_height),
     valueZats: BigInt(numberLike(r.value)),
     memo: decodeMemo(r.memo instanceof Uint8Array ? r.memo : null),
+    memoBytes: r.memo instanceof Uint8Array ? r.memo : null,
+    minedTime: heightOf(r.mined_time),
   }));
 }
 
@@ -72,6 +80,16 @@ export function readSent(dbPath: string): SentOutput[] {
     valueZats: BigInt(numberLike(r.value)),
     memo: decodeMemo(r.memo instanceof Uint8Array ? r.memo : null),
   }));
+}
+
+// Average seconds per block over the last `count` blocks the wallet has
+// scanned, or null if it has too few. Testnet often runs well off the 75 s target.
+export function recentBlockSeconds(dbPath: string, count = 20): number | null {
+  const rows = queryRows(dbPath, `SELECT height, time FROM blocks ORDER BY height DESC LIMIT ${Math.max(2, count + 1)}`);
+  if (rows.length < 3) return null;
+  const [newest, oldest] = [rows[0], rows[rows.length - 1]];
+  const blocks = Number(numberLike(newest.height)) - Number(numberLike(oldest.height));
+  return Math.round((Number(numberLike(newest.time)) - Number(numberLike(oldest.time))) / blocks);
 }
 
 // A transaction that was never mined and whose expiry height has passed can no
@@ -113,18 +131,25 @@ export function decodeMemo(bytes: Uint8Array | null): string | null {
   return Buffer.from(bytes).toString("utf8").replace(/\0+$/, "");
 }
 
+function unsealedWhenMined(o: ReceivedOutput, sealedUntil: number): boolean {
+  // Without the block's time we cannot show the bid was sealed when it landed.
+  if (o.minedTime === null || o.minedTime === undefined) throw new Error(`no block time for ${o.txid} at height ${o.minedHeight}`);
+  return o.minedTime >= sealedUntil;
+}
+
 export function scanBids(outputs: ReceivedOutput[], window: Window): BidScan {
   const scan: BidScan = { bids: [], rejected: [] };
   for (const o of outputs) {
     const id = `${o.txid}:${o.outputIndex}`;
     const memo = o.memo === null ? null : parseBidMemo(o.memo);
     const reject = (reason: Rejected["reason"]) =>
-      scan.rejected.push({ id, valueZats: o.valueZats, reason, ...(memo?.refundTo && { refundTo: memo.refundTo }) });
+      scan.rejected.push({ id, valueZats: o.valueZats, reason, ...(memo?.refundTo && { refundTo: memo.refundTo }), ...(memo && { maxPrice: memo.maxPrice }) });
     // A payment with no bid memo is not a bid at any height (a fee float, a
     // tip); only a real bid that misses the window is owed a refund as late.
     if (!memo) { reject("no bid memo"); continue; }
     if (o.minedHeight === null) { reject("unmined"); continue; }
     if (o.minedHeight < window.startHeight || o.minedHeight > window.endHeight) { reject("outside window"); continue; }
+    if (window.sealedUntil !== undefined && unsealedWhenMined(o, window.sealedUntil)) { reject("outside window"); continue; }
     scan.bids.push({ txid: id, amountZats: o.valueZats, minedHeight: o.minedHeight, ...memo });
   }
   return scan;

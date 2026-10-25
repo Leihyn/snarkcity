@@ -12,6 +12,7 @@ import { readReceived, readSent, scanBids } from "../../watcher/src/bids.ts";
 import { chainTip, pay, refresh, shieldedBalance, viewingKey } from "../../watcher/src/devtool.ts";
 import { batches, feeEstimateZats, planPayouts, withLateBids } from "../../watcher/src/payouts.ts";
 import { payBatch } from "../../watcher/src/pay-batch.ts";
+import { drandSignature, unseal } from "../../watcher/src/sealed.ts";
 import { settle } from "../../watcher/src/settle.ts";
 import { writeFileSync } from "node:fs";
 import { closeWithoutSale, fetchLaunch, loadKeypair, program, setRoot, withdrawUnsold } from "../src/client.ts";
@@ -37,7 +38,17 @@ if (tip < endHeight + SETTLE_MARGIN) {
 }
 
 const db = join(wallet.dir, "data.sqlite");
-const scan = scanBids(readReceived(db), { startHeight, endHeight });
+let received = readReceived(db);
+if (launch.seal) {
+  // Sealed bids open only with drand's signature for the launch's round.
+  const signature = await drandSignature(launch.seal.round);
+  if (signature === null) {
+    console.log(`${launch.name}: not ready to settle: bids unseal at drand round ${launch.seal.round} (${new Date(launch.seal.revealAt * 1000).toISOString()})`);
+    process.exit(3);
+  }
+  received = await unseal(received, launch.seal, signature);
+}
+const scan = scanBids(received, { startHeight, endHeight, ...(launch.seal && { sealedUntil: launch.seal.revealAt }) });
 const s = settle(scan.bids, { supply: BigInt(launch.sale.supply), decimals: launch.sale.decimals, reservePrice: BigInt(launch.sale.reservePrice) });
 writeJson(path.replace(/\.json$/, ".settlement.json"), { ...s, rejected: scan.rejected });
 console.log(`${launch.name}: ${scan.bids.length} bids, price ${s.price ? `${s.price.num}/${s.price.den}` : "none"}, ${s.tokensSold} sold, ${s.raisedZats} zats raised`);
