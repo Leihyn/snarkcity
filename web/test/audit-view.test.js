@@ -64,3 +64,17 @@ test("opened bids are labelled by the clearing price", async () => {
   assert.equal(rows[0].maxPrice, "0.000006 ZEC");
   assert.deepEqual(envelopeRows({ ...good, envelopes: undefined }, 6), [], "older reports have no list");
 });
+
+test("each payout links to its Zcash transaction, wrong ones included", async () => {
+  const { payoutRows, ZCASH_TX } = await import("../src/audit-view.js");
+  const txid = "6ff7e56d8a27c82009c8f9e9fc05e25dc44edc1d674c1f9db0e0596cfa3e5f6d";
+  const rows = payoutRows({ payouts: [
+    { bidId: "a:1", owedZats: "100000", txid, status: "paid" },
+    { bidId: "b:1", owedZats: "5000", txid, status: "wrong amount" },
+    { bidId: "c:1", owedZats: "7000", status: "missing" },
+  ] });
+  assert.deepEqual(rows[0], { owed: "0.001 ZEC", status: "paid", ok: true, tx: { short: "6ff7e56d…", href: ZCASH_TX + txid } });
+  assert.equal(rows[1].ok, false);
+  assert.equal(rows[1].tx.href, ZCASH_TX + txid);
+  assert.equal(rows[2].tx, null);
+});

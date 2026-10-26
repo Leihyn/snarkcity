@@ -32,6 +32,15 @@
       <div><dt>Zcash testnet</dt><dd id="zcashTip">…</dd></div>
       <div><dt>Solana</dt><dd>devnet</dd></div>
     </dl>
+    <details class="how">
+      <summary>How it works</summary>
+      <ol>
+        <li><b>Bid in fog.</b> A bid is a shielded Zcash payment. Its price is time-locked to a drand round, so nobody, the operator included, reads it before the close.</li>
+        <li><b>One price.</b> At the close the bids open and a uniform-price auction sets one price that every winner pays. Unspent ZEC is refunded.</li>
+        <li><b>Claim on Solana.</b> The tower rises with the share sold. Winners claim with their bid file, and the windows light up.</li>
+        <li><b>Check it.</b> Each launch publishes its viewing key, so anyone can re-run the auction from the chain and see every refund paid.</li>
+      </ol>
+    </details>
   </header>
 
   <aside class="hud launches panel" id="launches" aria-label="Launches" aria-live="polite"></aside>
@@ -114,6 +123,14 @@
       <div class="envelopes-wrap"><table class="envelopes">
         <thead><tr><th>Max price</th><th>Sent</th><th>Tokens</th><th>Refund</th><th>Outcome</th></tr></thead>
         <tbody id="auditBids"></tbody>
+      </table></div>
+    </div>
+    <div id="auditPayouts" hidden>
+      <h3 class="audit-h">Refunds</h3>
+      <p class="bid-fine">Every refund the auction owes, found on the Zcash chain by its receipt memo. Open one to see it mined; the amount and address stay shielded.</p>
+      <div class="envelopes-wrap"><table class="envelopes">
+        <thead><tr><th>Owed</th><th>Status</th><th>Transaction</th></tr></thead>
+        <tbody id="auditPaid"></tbody>
       </table></div>
     </div>
     <p class="bid-fine" id="auditWhen"></p>

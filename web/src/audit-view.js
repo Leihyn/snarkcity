@@ -57,3 +57,15 @@ export function envelopeRows(report, decimals) {
     };
   });
 }
+
+// Each refund the audit expected, linked to the Zcash transaction
+// that paid it (also when that payment was wrong, so you can see it).
+export const ZCASH_TX = 'https://blockexplorer.one/zcash/testnet/tx/';
+export function payoutRows(report) {
+  return report.payouts.map((p) => ({
+    owed: `${zec(p.owedZats)} ZEC`,
+    status: p.status,
+    ok: p.status === 'paid' || p.status === 'no address',
+    tx: p.txid ? { short: `${p.txid.slice(0, 8)}…`, href: ZCASH_TX + p.txid } : null,
+  }));
+}

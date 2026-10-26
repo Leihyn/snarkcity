@@ -8,7 +8,7 @@ import { auditScreen } from './audit-screen.js';
 import { claimScreen } from './claim-screen.js';
 import { buildSite } from './site.js';
 import { hash } from './rng.js';
-import { litFraction, PHASE_LABEL, pricePerToken, tokens, zec } from './view-model.js';
+import { litFraction, PHASE_LABEL, pricePerToken, tokens, trustLines, zec } from './view-model.js';
 
 const POLL_MS = 15_000;
 const canvas = document.getElementById('scene');
@@ -143,6 +143,7 @@ function renderPanel() {
       ${selected === s.launchId ? `
         <p class="note">${esc(phaseNote(s))}</p>
         <dl class="rows">${detailRows(s)}</dl>
+        <ul class="trust">${trustLines(s, Date.now() / 1000).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         ${s.pool ? '<p class="note">The pool opens at the clearing price. Its SOL is priced by a live NEAR Intents mainnet quote for the ZEC raised; NEAR Intents has no testnet, so the swap is not executed and the creator seeds the SOL.</p>' : ''}
         ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
         ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}

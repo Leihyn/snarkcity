@@ -29,3 +29,17 @@ test("pool sizing: the raise buys tokens at the clearing price, SOL parses exact
   assert.equal(lamportsOf("0.0000000019"), 1n, "beyond 9 decimals is cut, not rounded up");
   assert.throws(() => lamportsOf("-1"), /not a SOL amount/);
 });
+
+test("public terms show FROST custody as a threshold, never the share files", async () => {
+  const { publicTerms } = await import("../src/launch-file.ts");
+  const open: LaunchFile = {
+    ...launch(30),
+    zcash: { devtool: "d", walletDir: "w", biddingBlocks: 30, address: "utest1x", startHeight: 10, endHeight: 40 },
+    solana: { rpc: "r", keypair: "k", mint: "M", creator: "C", launchId: "L" },
+    custody: { kind: "frost", group: "ab", shares: ["/secret/alice.toml", "/secret/bob.toml", "/secret/carol.toml"], signers: [0, 1], zcashSign: "/bin/zs", frostSign: "/bin/fs" },
+  };
+  const terms = publicTerms(open, "P");
+  assert.deepEqual(terms.custody, { kind: "frost", threshold: 2, holders: 3 });
+  assert.doesNotMatch(JSON.stringify(terms), /secret|\/bin\//);
+  assert.equal(publicTerms({ ...open, custody: undefined }, "P").custody, undefined);
+});

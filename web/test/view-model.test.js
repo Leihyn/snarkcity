@@ -38,3 +38,18 @@ test("the sign tells the phase without revealing demand", () => {
     ["FOGCOIN", "0.000004 ZEC · 100% SOLD"],
   );
 });
+
+test("the trust lines say how bids were sealed and who signs refunds", async () => {
+  const { trustLines } = await import("../src/view-model.js");
+  const seal = { round: 33373748, revealAt: 1792924608, chainHash: "x" }; // 25 Oct 2026, 10:36:48 UTC
+  const custody = { kind: "frost", threshold: 2, holders: 3 };
+  assert.deepEqual(trustLines({ seal, custody }, 1792924608), [
+    "Bids sealed to drand round 33373748, opened 25 Oct, 10:36 UTC.",
+    "Refunds need 2 of 3 FROST key holders to sign.",
+  ]);
+  assert.match(trustLines({ seal }, 1792924607)[0], /nobody can open them before 25 Oct, 10:36 UTC/);
+  assert.deepEqual(trustLines({}, 0), [
+    "Bids not sealed: the launch wallet reads each bid's price as it arrives.",
+    "Refunds are signed by a single operator key.",
+  ]);
+});

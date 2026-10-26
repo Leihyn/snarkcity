@@ -51,6 +51,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .launch-head { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; background: none; border: 0; cursor: pointer; text-align: left; }
 .launch-name { font-family: var(--display); font-weight: 800; font-size: 22px; line-height: 1; }
 .note { margin: 0 12px 10px; color: var(--muted); line-height: 1.45; }
+.trust { margin: 0 12px 10px; padding: 8px 10px; list-style: none; display: grid; gap: 4px; border-left: 2px solid var(--sodium); background: var(--sodium-soft); line-height: 1.4; }
+.how { margin-top: 10px; border-top: 1px solid var(--rule); padding-top: 8px; }
+.how summary { cursor: pointer; color: var(--sodium); font-family: var(--mono); font-size: 12px; }
+.how ol { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 6px; line-height: 1.4; font-size: 13px; }
+.how b { color: var(--chalk); }
 .rows { margin: 0 12px 10px; display: grid; gap: 4px; }
 .row { display: flex; justify-content: space-between; gap: 12px; }
 .row dt { color: var(--muted); }
@@ -120,6 +125,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .envelopes tr.won td:last-child { color: var(--live); }
 .envelopes tr.partial td:last-child { color: var(--sodium); }
 .envelopes tr.lost td, .envelopes tr.late td { color: var(--muted); }
+.envelopes tr.bad td { color: var(--sodium); }
 .audit-h { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 6px; }
 .bid-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 

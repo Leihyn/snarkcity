@@ -62,3 +62,26 @@ export const PHASE_LABEL = {
 
 // Fog phases hide the tower; the reveal plays when one of them gives way to "live".
 export const FOGGY = new Set(["bidding", "settling"]);
+
+// What a launch's bidders rely on, in plain words: whether prices were sealed,
+// and who can move the money.
+export function trustLines(status, nowSeconds) {
+  const lines = [];
+  if (status.seal) {
+    const at = utcTime(status.seal.revealAt);
+    lines.push(nowSeconds >= status.seal.revealAt
+      ? `Bids sealed to drand round ${status.seal.round}, opened ${at} UTC.`
+      : `Bids sealed to drand round ${status.seal.round}: nobody can open them before ${at} UTC.`);
+  } else {
+    lines.push("Bids not sealed: the launch wallet reads each bid's price as it arrives.");
+  }
+  const c = status.custody;
+  lines.push(c ? `Refunds need ${c.threshold} of ${c.holders} FROST key holders to sign.` : "Refunds are signed by a single operator key.");
+  return lines;
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function utcTime(seconds) {
+  const d = new Date(seconds * 1000);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}, ${d.toISOString().slice(11, 16)}`;
+}
