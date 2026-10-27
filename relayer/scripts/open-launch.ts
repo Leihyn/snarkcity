@@ -51,7 +51,8 @@ launch.zcash.address = await defaultAddress(wallet);
 launch.zcash.startHeight = tip + 1;
 launch.zcash.endHeight = tip + launch.zcash.biddingBlocks;
 Object.assign(launch.solana, { mint: mint.toBase58(), creator: creator.publicKey.toBase58(), launchId: launchId.toString() });
-if (launch.sealed) {
+// Bids are sealed unless the launch file says "sealed": false.
+if (launch.sealed !== false) {
   const round = roundAt(Math.floor(Date.now() / 1000) + launch.zcash.biddingBlocks * TARGET_BLOCK_SECONDS);
   launch.seal = { round, revealAt: roundTime(round), chainHash: DRAND.chainHash };
 }
@@ -63,4 +64,5 @@ console.log(`${launch.name} (${launch.kind}) is open`);
 console.log(`  supply locked on Solana: ${supply} base units of ${mint.toBase58()} (tx ${sig})`);
 console.log(`  bids: Zcash blocks ${launch.zcash.startHeight}..${launch.zcash.endHeight} to ${launch.zcash.address.slice(0, 24)}…`);
 if (launch.seal) console.log(`  bids sealed to drand round ${launch.seal.round}, which opens at ${new Date(launch.seal.revealAt * 1000).toISOString()}`);
+else console.log(`  bids NOT sealed ("sealed": false): the launch wallet can read every price`);
 console.log(`  public terms: ${publicPath}`);

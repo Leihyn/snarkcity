@@ -8,7 +8,7 @@ import { auditScreen } from './audit-screen.js';
 import { claimScreen } from './claim-screen.js';
 import { buildSite } from './site.js';
 import { hash } from './rng.js';
-import { litFraction, moment, PHASE_LABEL, pricePerToken, tokens, trustLines, zec } from './view-model.js';
+import { bidAction, litFraction, moment, phaseLabel, pricePerToken, tokens, trustLines, zec } from './view-model.js';
 import { explain, HttpError } from './errors.js';
 import { loadTheme } from './theme.js';
 
@@ -96,7 +96,7 @@ function apply(data) {
     entry.status = s;
     entry.site.update(s);
     entry.label.position.y = entry.site.labelHeight();
-    entry.chip.innerHTML = `<b>${esc(s.name)}</b><span class="phase ${s.phase.replace(' ', '-')}">${esc(PHASE_LABEL[s.phase])}</span>`;
+    entry.chip.innerHTML = `<b>${esc(s.name)}</b><span class="phase ${s.phase.replace(' ', '-')}">${esc(phaseLabel(s))}</span>`;
     entry.chip.classList.toggle('on', selected === s.launchId);
     bid.update(s);
   });
@@ -142,14 +142,14 @@ function renderPanel() {
     <article class="launch ${selected === s.launchId ? 'on' : ''}" data-id="${esc(s.launchId)}">
       <button type="button" class="launch-head" data-id="${esc(s.launchId)}" data-key="head:${esc(s.launchId)}" aria-expanded="${selected === s.launchId}">
         <span class="launch-name">${esc(s.name)}</span>
-        <span class="phase ${s.phase.replace(' ', '-')}">${esc(PHASE_LABEL[s.phase])}</span>
+        <span class="phase ${s.phase.replace(' ', '-')}">${esc(phaseLabel(s))}</span>
       </button>
       ${selected === s.launchId ? `
         <p class="note">${esc(phaseNote(s))}</p>
         <dl class="rows">${detailRows(s)}</dl>
         <ul class="trust">${trustLines(s, Date.now() / 1000).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         ${s.pool ? '<p class="note">The pool opens at the clearing price. Its SOL is priced by a live NEAR Intents mainnet quote for the ZEC raised; NEAR Intents has no testnet, so the swap is not executed and the creator seeds the SOL.</p>' : ''}
-        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}" data-key="bid:${esc(s.launchId)}">Place a sealed bid</button>` : ''}
+        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}" data-key="bid:${esc(s.launchId)}">${esc(bidAction(s))}</button>` : ''}
         ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}" data-key="claim:${esc(s.launchId)}">Claim tokens</button>` : ''}
         ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}" data-key="audit:${esc(s.launchId)}">Check the result</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>

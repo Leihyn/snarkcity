@@ -16,7 +16,7 @@ export interface SealTerms {
 export interface LaunchFile {
   name: string;
   kind: "memecoin" | "startup";
-  sealed?: boolean; // seal bids with drand (set before opening)
+  sealed?: boolean; // seal bids with drand; on unless set to false before opening
   custody?: FrostCustody; // 2-of-3 FROST key instead of a single spending key (scripts/frost-wallet.ts)
   seal?: SealTerms; // filled by open-launch for sealed launches
   zcash: {

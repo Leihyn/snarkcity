@@ -61,3 +61,13 @@ test("a moment reads the same everywhere: UTC first, then the viewer's clock", a
   assert.equal(moment(t, "Africa/Lagos"), "25 Oct, 10:36 UTC (11:36 your time)");
   assert.equal(moment(t + 46_440, "Africa/Lagos"), "25 Oct, 23:30 UTC (26 Oct, 00:30 your time)", "the date shows when the day differs");
 });
+
+test("only a launch with a seal is called sealed", async () => {
+  const { phaseLabel, bidAction } = await import("../src/view-model.js");
+  const seal = { round: 1, revealAt: 1, chainHash: "x" };
+  assert.equal(phaseLabel({ phase: "bidding", seal }), "Sealed bidding");
+  assert.equal(phaseLabel({ phase: "bidding" }), "Bidding");
+  assert.equal(phaseLabel({ phase: "live" }), "Live");
+  assert.equal(bidAction({ seal }), "Place a sealed bid");
+  assert.equal(bidAction({}), "Place a bid");
+});

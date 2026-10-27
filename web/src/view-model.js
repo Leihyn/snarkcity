@@ -60,6 +60,12 @@ export const PHASE_LABEL = {
   live: "Live",
 };
 
+// A launch is only called sealed when its bids really are.
+export function phaseLabel(status) {
+  return status.phase === 'bidding' && !status.seal ? 'Bidding' : PHASE_LABEL[status.phase];
+}
+export const bidAction = (status) => (status.seal ? 'Place a sealed bid' : 'Place a bid');
+
 // Fog phases hide the tower; the reveal plays when one of them gives way to "live".
 export const FOGGY = new Set(["bidding", "settling"]);
 

@@ -147,6 +147,7 @@ export function bidScreen() {
       form.reset();
       $('bidResumeNote').textContent = '';
       $('bidName').textContent = status.name;
+      $('bidKind').textContent = status.seal ? 'Sealed bid' : 'Bid';
       $('bidReserve').textContent = `${priceBoth(BigInt(status.reservePrice))} per token`;
       $('bidSupply').textContent = `${tokens(status.supply, status.decimals)} tokens`;
       $('bidSealed').hidden = !status.seal;
