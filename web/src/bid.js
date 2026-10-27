@@ -25,6 +25,26 @@ export function formatZec(zats) {
   return frac ? `${whole}.${frac}` : `${whole}`;
 }
 
+// A price per token, typed in ZEC ("0.000004") or in zats ("400"), as zats.
+// Tiny ZEC decimals are easy to get wrong by a zero; zats are whole numbers.
+export function parsePrice(text, unit = 'zec') {
+  if (unit !== 'zats') return parseZec(text);
+  const m = /^\s*(\d{1,12})\s*$/.exec(String(text));
+  return m ? BigInt(m[1]) : null;
+}
+
+// "0.000004 ZEC (400 zats)": both units, so a slipped zero stands out.
+export function priceBoth(zats) {
+  return `${formatZec(zats)} ZEC (${zats.toLocaleString('en-US')} zats)`;
+}
+
+// What the typed price means in the other unit, shown under the field.
+export function priceEcho(text, unit = 'zec') {
+  const zats = parsePrice(text, unit);
+  if (zats === null || zats === 0n) return '';
+  return unit === 'zats' ? `= ${formatZec(zats)} ZEC per token` : `= ${zats.toLocaleString('en-US')} zats per token`;
+}
+
 // Refunds go back to this address, so it must be a Zcash testnet address.
 export function refundAddressProblem(addr) {
   if (!addr) return 'A refund address is needed: anything not spent on tokens is sent back there.';
@@ -34,11 +54,11 @@ export function refundAddressProblem(addr) {
 
 // Checks the inputs against the launch's public terms. Returns the parsed
 // values, or the first problem as a sentence.
-export function checkBid({ price, amount, refundTo }, launch) {
-  const maxPrice = parseZec(price);
+export function checkBid({ price, priceUnit = 'zec', amount, refundTo }, launch) {
+  const maxPrice = parsePrice(price, priceUnit);
   const amountZats = parseZec(amount);
-  if (maxPrice === null || maxPrice === 0n) return { problem: 'Enter your maximum price in ZEC per token.' };
-  if (maxPrice < BigInt(launch.reservePrice)) return { problem: `The reserve price is ${formatZec(BigInt(launch.reservePrice))} ZEC per token. Bids below it are refunded.` };
+  if (maxPrice === null || maxPrice === 0n) return { problem: `Enter your maximum price in ${priceUnit === 'zats' ? 'zats' : 'ZEC'} per token.` };
+  if (maxPrice < BigInt(launch.reservePrice)) return { problem: `The reserve price is ${priceBoth(BigInt(launch.reservePrice))} per token. Bids below it are refunded.` };
   if (amountZats === null || amountZats === 0n) return { problem: 'Enter how much ZEC to send.' };
   const refund = refundAddressProblem(refundTo.trim());
   if (refund) return { problem: refund };
@@ -92,6 +112,20 @@ export function bidFile(key, launch, bid, memo) {
     ...(typeof memo === 'string' ? { memo } : { memoHex: [...memo].map((b) => b.toString(16).padStart(2, '0')).join('') }),
     createdAt: new Date().toISOString(),
   };
+}
+
+// Rebuilds the payment for a saved bid file, so a bid can be paid after the
+// dialog was closed. Returns the payment, or the first problem as a sentence.
+export function resumeBid(text, launch) {
+  let f;
+  try { f = JSON.parse(text); } catch { return { problem: 'That file is not a bid file (it is not JSON).' }; }
+  if (!f?.launch?.launchId || !f.amountZats || !(f.memo || f.memoHex)) return { problem: 'That file is not a bid file made by this page.' };
+  if (f.launch.launchId !== launch.launchId) return { problem: `This bid file is for ${f.launch.name}, not ${launch.name}.` };
+  if (f.launch.bidAddress !== launch.bidAddress) return { problem: 'This bid file names a different launch address. Make a new bid.' };
+  if (!/^[0-9a-f]*$/.test(f.memoHex ?? '') || (f.memoHex ?? '').length % 2) return { problem: 'The bid file is damaged: its memo cannot be read.' };
+  const memo = f.memoHex ? Uint8Array.from(f.memoHex.match(/../g), (b) => parseInt(b, 16)) : f.memo;
+  const amountZats = BigInt(f.amountZats);
+  return { commitment: f.commitment, amountZats, memo, uri: paymentUri(launch.bidAddress, amountZats, memo) };
 }
 
 export function bidFileName(launch, commitment) {

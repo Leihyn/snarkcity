@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { T } from './theme.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
@@ -43,6 +44,12 @@ export function has(name) { return cache.has(name); }
 export function model(name, scale = 1) {
   const g = cache.get(name);
   if (!g) return new THREE.Group();
+  if (T.tint && !g.tinted) {
+    // Materials are shared between clones, so tint them once.
+    const tint = new THREE.Color(T.tint);
+    g.scene.traverse((o) => { if (o.isMesh) [o.material].flat().forEach((m) => m.color?.multiply(tint)); });
+    g.tinted = true;
+  }
   const obj = g.scene.clone(true);
   obj.scale.setScalar(scale);
   return centered(obj);

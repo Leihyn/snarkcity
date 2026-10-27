@@ -10,7 +10,8 @@
 // A settlement is published next to its terms as <launch>.settlement.json and
 // shown only once the launch is final on Solana.
 //
-// Claims: POST /api/claim/prepare {launchId, commitment, claimPubkey, salt, recipient?}
+// Claims: POST /api/claim/status {launchId, commitment} says whether a bid won
+// and whether it is claimed (read-only). POST /api/claim/prepare {launchId, commitment, claimPubkey, salt, recipient?}
 // returns the transaction message for the browser to sign; POST /api/claim/submit
 // {message, signature} co-signs and sends it. See src/relay.ts.
 //
@@ -117,15 +118,20 @@ async function readBody(req: IncomingMessage): Promise<Record<string, string>> {
 }
 
 // Claims are relayed only for launches that are final on Solana with a sale.
-async function claimPrepare(body: Record<string, string>) {
-  const path = launchPaths.find((p) => terms(p).launchId === body.launchId);
+async function claimable(launchId: string) {
+  const path = launchPaths.find((p) => terms(p).launchId === launchId);
   if (!path) throw new Error("unknown launch");
   const t = terms(path);
   const state = await onChain(t);
   if (!state?.finalized || state.noSale) throw new Error(`${t.name} has no result to claim yet`);
   const settlement = JSON.parse(readFileSync(path.replace(/\.public\.json$/, ".settlement.json"), "utf8"));
+  return { t, claims: settlement.claims as Allocation[] };
+}
+
+async function claimPrepare(body: Record<string, string>) {
+  const { t, claims } = await claimable(body.launchId);
   const { commitment, claimPubkey, salt, recipient } = body;
-  return relay!.prepare(t, settlement.claims as Allocation[], { commitment, claimPubkey, salt, recipient });
+  return relay!.prepare(t, claims, { commitment, claimPubkey, salt, recipient });
 }
 
 async function api(req: IncomingMessage, res: ServerResponse, urlPath: string) {
@@ -134,6 +140,10 @@ async function api(req: IncomingMessage, res: ServerResponse, urlPath: string) {
   try {
     const body = await readBody(req);
     if (urlPath === "/api/claim/prepare") return reply(200, await claimPrepare(body));
+    if (urlPath === "/api/claim/status") {
+      const { t, claims } = await claimable(body.launchId);
+      return reply(200, await relay.status(t, claims, body.commitment));
+    }
     return reply(200, { signature: await relay.submit(body.message, body.signature) });
   } catch (e) {
     return reply(400, { error: (e as Error).message.split("\n")[0] });
@@ -161,7 +171,7 @@ createServer(async (req, res) => {
     const body = JSON.stringify({ zcashTip, launches: await launches() });
     return res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(body);
   }
-  if (req.method === "POST" && (urlPath === "/api/claim/prepare" || urlPath === "/api/claim/submit")) return api(req, res, urlPath);
+  if (req.method === "POST" && ["/api/claim/prepare", "/api/claim/submit", "/api/claim/status"].includes(urlPath)) return api(req, res, urlPath);
   if (urlPath.startsWith("/api/audit/")) return auditRoute(req, res, urlPath);
   sendFile(res, urlPath);
 }).listen(cfg.port, cfg.host ?? "127.0.0.1", () => console.log(`SnarkCity: http://127.0.0.1:${cfg.port}/  (zcash height ${zcashTip})`));

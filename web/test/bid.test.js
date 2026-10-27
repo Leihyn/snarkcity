@@ -97,3 +97,33 @@ test("sealed launches: bytes in the payment link, bid file keeps them, bidding s
   assert.match(soon.note, /under 2 minutes/);
   assert.match(timing({ ...launch, blocksLeft: 20, blockSeconds: 30 }, 0).note, /about 10 minutes/, "uses measured block speed");
 });
+
+test("a price can be typed in ZEC or in zats, and the other unit is echoed", async () => {
+  const { parsePrice, priceEcho } = await import("../src/bid.js");
+  assert.equal(parsePrice("400", "zats"), 400n);
+  assert.equal(parsePrice("0.000004", "zats"), null, "zats are whole numbers");
+  assert.equal(parsePrice("0.000004"), 400n);
+  assert.equal(checkBid({ price: "400", priceUnit: "zats", amount: "0.002", refundTo: UA }, launch).maxPrice, 400n);
+  assert.match(checkBid({ price: "10", priceUnit: "zats", amount: "0.002", refundTo: UA }, launch).problem, /0.000001 ZEC \(100 zats\) per token/);
+  assert.equal(priceEcho("0.000004"), "= 400 zats per token");
+  assert.equal(priceEcho("400", "zats"), "= 0.000004 ZEC per token");
+  assert.equal(priceEcho(""), "");
+});
+
+test("a saved bid file rebuilds the same payment, for this launch only", async () => {
+  const { resumeBid, bidFile: makeFile } = await import("../src/bid.js");
+  const { sealBid } = await import("../src/seal.js");
+  const key = await makeClaimKey();
+  const bid = checkBid({ price: "0.000003", amount: "0.002", refundTo: UA }, launch);
+  const sealed = await sealBid({ commitment: key.commitment, maxPrice: bid.maxPrice, refundTo: UA }, 30000000);
+  for (const memo of [sealed, bidMemo({ commitment: key.commitment, ...bid })]) {
+    const text = JSON.stringify(makeFile(key, launch, bid, memo));
+    const back = resumeBid(text, launch);
+    assert.equal(back.uri, paymentUri(launch.bidAddress, bid.amountZats, memo), "same link as when it was made");
+    assert.equal(back.commitment, key.commitment);
+    assert.match(resumeBid(text, { ...launch, launchId: "other", name: "Other" }).problem, /is for .*, not Other/);
+    assert.match(resumeBid(text, { ...launch, bidAddress: "utest1elsewhere" }).problem, /different launch address/);
+  }
+  assert.match(resumeBid("{", launch).problem, /not JSON/);
+  assert.match(resumeBid("{}", launch).problem, /not a bid file/);
+});

@@ -43,13 +43,21 @@ test("the trust lines say how bids were sealed and who signs refunds", async () 
   const { trustLines } = await import("../src/view-model.js");
   const seal = { round: 33373748, revealAt: 1792924608, chainHash: "x" }; // 25 Oct 2026, 10:36:48 UTC
   const custody = { kind: "frost", threshold: 2, holders: 3 };
-  assert.deepEqual(trustLines({ seal, custody }, 1792924608), [
+  assert.deepEqual(trustLines({ seal, custody }, 1792924608, "UTC"), [
     "Bids sealed to drand round 33373748, opened 25 Oct, 10:36 UTC.",
     "Refunds need 2 of 3 FROST key holders to sign.",
   ]);
-  assert.match(trustLines({ seal }, 1792924607)[0], /nobody can open them before 25 Oct, 10:36 UTC/);
+  assert.match(trustLines({ seal }, 1792924607, "UTC")[0], /nobody can open them before 25 Oct, 10:36 UTC/);
   assert.deepEqual(trustLines({}, 0), [
     "Bids not sealed: the launch wallet reads each bid's price as it arrives.",
     "Refunds are signed by a single operator key.",
   ]);
+});
+
+test("a moment reads the same everywhere: UTC first, then the viewer's clock", async () => {
+  const { moment } = await import("../src/view-model.js");
+  const t = 1792924608; // 25 Oct 2026, 10:36:48 UTC
+  assert.equal(moment(t, "UTC"), "25 Oct, 10:36 UTC");
+  assert.equal(moment(t, "Africa/Lagos"), "25 Oct, 10:36 UTC (11:36 your time)");
+  assert.equal(moment(t + 46_440, "Africa/Lagos"), "25 Oct, 23:30 UTC (26 Oct, 00:30 your time)", "the date shows when the day differs");
 });

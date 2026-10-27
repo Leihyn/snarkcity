@@ -21,6 +21,12 @@ export type Prepared =
   | { status: "ready"; message: string; tokens: string; recipient: string }
   | { status: "no-allocation" | "claimed" };
 
+// What the chain says about one bid, from public data only (its commitment).
+export type ClaimState =
+  | { status: "no-allocation" }
+  | { status: "claimable"; tokens: string }
+  | { status: "claimed"; tokens: string; signature: string | null };
+
 // A blockhash lasts about a minute, so an unsigned claim is no use for longer.
 const PENDING_MS = 90_000;
 const isHex = (v: unknown, len: number) => typeof v === "string" && new RegExp(`^[0-9a-f]{${len}}$`).test(v);
@@ -32,6 +38,19 @@ export class ClaimRelay {
   constructor(connection: Connection, relayer: Keypair) {
     this.connection = connection;
     this.relayer = relayer;
+  }
+
+  // Read-only: no transaction is built and nothing is paid for.
+  async status(terms: PublicTerms, claims: Allocation[], commitment: string): Promise<ClaimState> {
+    if (!isHex(commitment, 64)) throw new Error("malformed claim request");
+    const entry = claims.find((c) => c.commitment === commitment);
+    if (!entry) return { status: "no-allocation" };
+    const launch = launchPda(new PublicKey(terms.creator), BigInt(terms.launchId));
+    const receipt = receiptPda(launch, Buffer.from(commitment, "hex"));
+    if (!(await this.connection.getAccountInfo(receipt))) return { status: "claimable", tokens: entry.tokens };
+    // The receipt is created by the claim, so its oldest transaction is the claim.
+    const sigs = await this.connection.getSignaturesForAddress(receipt, { limit: 20 });
+    return { status: "claimed", tokens: entry.tokens, signature: sigs.at(-1)?.signature ?? null };
   }
 
   async prepare(terms: PublicTerms, claims: Allocation[], req: ClaimRequest): Promise<Prepared> {

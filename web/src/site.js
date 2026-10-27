@@ -10,6 +10,7 @@
 import * as THREE from 'three';
 import { model } from './assets.js';
 import { rng } from './rng.js';
+import { T } from './theme.js';
 import { FOGGY, floorsFor, litFraction, signLines } from './view-model.js';
 
 export const FLOOR_H = 3.2;
@@ -21,7 +22,7 @@ function box(w, h, d, mat) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h
 
 export function buildSite(status, seed) {
   const g = new THREE.Group();
-  const pad = box(PAD, 0.3, PAD, std('#9A9C9F')); pad.position.y = 0.15; g.add(pad);
+  const pad = box(PAD, 0.3, PAD, std(T.pad)); pad.position.y = 0.15; g.add(pad);
   const parts = {
     lot: lotProps(),
     fog: fogCloud(seed),
@@ -78,7 +79,7 @@ function lotProps() {
   [[-6, 6], [6, 6], [-6, -6], [6, -6]].forEach(([x, z]) => { const c = model('construction-cone', 1.6); c.position.set(x, 0.3, z); group.add(c); });
   const bar = model('construction-barrier', 3); bar.position.set(0, 0.3, 7.5); group.add(bar);
   const crane = new THREE.Group();
-  const steel = std('#F2B33D', { roughness: 0.6 });
+  const steel = std(T.accent, { roughness: 0.6 });
   const mast = box(0.8, 26, 0.8, steel); mast.position.set(-5, 13.3, -5); crane.add(mast);
   const jib = box(20, 0.6, 0.6, steel); jib.position.set(1, 26, -5); crane.add(jib);
   const weight = box(2.5, 1.6, 1.6, std('#5B606B')); weight.position.set(-8.5, 25.2, -5); crane.add(weight);
@@ -91,7 +92,7 @@ function lotProps() {
 function fogCloud(seed) {
   const group = new THREE.Group();
   const r = rng(seed);
-  const pole = std('#C9CCD2', { roughness: 0.5, metalness: 0.3 });
+  const pole = std(T.pole, { roughness: 0.5, metalness: 0.3 });
   const H = SCAFFOLD_FLOORS * FLOOR_H, half = TOWER_W / 2;
   [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([x, z]) => { const p = box(0.3, H, 0.3, pole); p.position.set(x * half, H / 2 + 0.3, z * half); group.add(p); });
   for (let f = 1; f <= SCAFFOLD_FLOORS; f += 2) {
@@ -102,7 +103,7 @@ function fogCloud(seed) {
   }
   // Soft camera-facing puffs, kept inside the pad so neighbouring sites
   // never merge into one cloud.
-  const mat = new THREE.SpriteMaterial({ map: puffTexture(), color: '#E4E8F0', transparent: true, opacity: 0.8, depthWrite: false });
+  const mat = new THREE.SpriteMaterial({ map: puffTexture(), color: T.puff, transparent: true, opacity: T.puffOpacity, depthWrite: false });
   const puffs = [];
   for (let k = 0; k < 60; k++) {
     const s = 10 + r() * 7;
@@ -123,7 +124,7 @@ function fogCloud(seed) {
         p.position.y = y + Math.sin(t * 0.4 + bob) * 0.6;
       }
     },
-    fade(k) { mat.opacity = 0.8 * k; },
+    fade(k) { mat.opacity = T.puffOpacity * k; },
   };
 }
 
@@ -147,7 +148,7 @@ function buildTower(floors, lit, seed) {
   const cv = document.createElement('canvas'), ecv = document.createElement('canvas');
   cv.width = ecv.width = COLS * 32; cv.height = ecv.height = floors * 32;
   const a = cv.getContext('2d'), e = ecv.getContext('2d');
-  a.fillStyle = '#8A9AB4'; a.fillRect(0, 0, cv.width, cv.height);
+  a.fillStyle = T.towerBase; a.fillRect(0, 0, cv.width, cv.height);
   e.fillStyle = '#000'; e.fillRect(0, 0, ecv.width, ecv.height);
   const r = rng(seed + 7);
   const windows = [];
@@ -156,16 +157,16 @@ function buildTower(floors, lit, seed) {
   const litCount = Math.round(lit * windows.length);
   windows.forEach(([x, y], i) => {
     const on = i < litCount;
-    a.fillStyle = on ? '#FFE3A1' : '#2A3446'; a.fillRect(x * 32 + 6, y * 32 + 7, 20, 18);
-    if (on) { e.fillStyle = '#FFC86A'; e.fillRect(x * 32 + 6, y * 32 + 7, 20, 18); }
+    a.fillStyle = on ? T.windowLit : T.windowDark; a.fillRect(x * 32 + 6, y * 32 + 7, 20, 18);
+    if (on) { e.fillStyle = T.windowGlow; e.fillRect(x * 32 + 6, y * 32 + 7, 20, 18); }
   });
   const tex = new THREE.CanvasTexture(cv), etex = new THREE.CanvasTexture(ecv);
   tex.colorSpace = etex.colorSpace = THREE.SRGBColorSpace;
   const side = new THREE.MeshStandardMaterial({ map: tex, emissive: new THREE.Color('#ffffff'), emissiveMap: etex, emissiveIntensity: 0.9, roughness: 0.7 });
-  const roof = std('#55617A');
+  const roof = std(T.roof);
   const tower = new THREE.Mesh(new THREE.BoxGeometry(TOWER_W, H, TOWER_W), [side, side, roof, roof, side, side]);
   tower.castShadow = true; tower.position.y = H / 2 + 0.3; g.add(tower);
-  const crown = box(TOWER_W + 0.6, 0.6, TOWER_W + 0.6, std('#F2B33D', { emissive: new THREE.Color('#F2B33D'), emissiveIntensity: 0.25 }));
+  const crown = box(TOWER_W + 0.6, 0.6, TOWER_W + 0.6, std(T.accent, { emissive: new THREE.Color(T.accent), emissiveIntensity: 0.25 }));
   crown.position.y = H + 0.6; g.add(crown);
   return g;
 }
@@ -181,11 +182,11 @@ function makeSign() {
   return {
     mesh,
     draw([title, sub]) {
-      g.fillStyle = '#141A26'; g.fillRect(0, 0, 1024, 256);
-      g.fillStyle = '#F2B33D'; g.fillRect(0, 238, 1024, 18);
+      g.fillStyle = T.signBg; g.fillRect(0, 0, 1024, 256);
+      g.fillStyle = T.accent; g.fillRect(0, 238, 1024, 18);
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      g.fillStyle = '#F4EFE3'; g.font = '800 112px "Big Shoulders Display", "Arial Narrow", Arial, sans-serif'; g.fillText(title, 512, 92);
-      g.fillStyle = '#F2B33D'; g.font = '500 44px "IBM Plex Mono", Menlo, monospace'; g.fillText(sub, 512, 190);
+      g.fillStyle = T.signText; g.font = `800 112px ${T.signFont}`; g.fillText(title, 512, 92);
+      g.fillStyle = T.accent; g.font = `500 44px ${T.signMono}`; g.fillText(sub, 512, 190);
       tex.needsUpdate = true;
     },
   };

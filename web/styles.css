@@ -78,7 +78,41 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 @media (max-width: 640px) {
   .brand { top: 12px; left: 12px; right: 12px; width: auto; padding: 10px 12px; }
   .brand-name { font-size: 26px; }
-  .launches { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 45%; }
+  .brand .chain { display: none; } /* leaves more of the city in view */
+  .launches { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 38%; }
+  /* A picked launch replaces the list, so its details are what you see. */
+  .launches[data-picked] { max-height: 58%; }
+  .launches[data-picked] .launch:not(.on) { display: none; }
+}
+.launches > .eyebrow { display: flex; justify-content: space-between; align-items: center; }
+.all-launches { border: 0; background: none; padding: 0; color: var(--sodium); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* Loading and connection problems */
+.loading .btn { justify-self: center; }
+.conn-note { margin: 8px 0 0; padding: 6px 8px; border-radius: 6px; font-size: 12px; line-height: 1.4; color: var(--sodium); background: var(--sodium-soft); }
+
+/* Bid form: price unit, its echo in the other unit, resuming a saved bid */
+.with-unit { display: flex; gap: 6px; }
+.with-unit select { flex: none; font: 14px var(--mono); color: var(--chalk); background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 0 8px; }
+.echo { min-height: 1.2em; }
+.linkish { border: 0; background: none; padding: 0; color: var(--sodium); font: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
+.bid-resumed { margin: 0 0 10px; padding: 8px 10px; border-left: 2px solid var(--sodium); background: var(--sodium-soft); font-size: 13px; }
+.after-send ol { margin: 4px 0 12px; padding-left: 18px; display: grid; gap: 4px; }
+.bid-fields code.prose { word-break: normal; overflow-wrap: break-word; }
+
+/* Paying: wide screens scan the QR; a phone opens its own wallet app, and
+   shows the QR only for another device. */
+.only-narrow, #bid .qr-toggle { display: none; }
+@media (max-width: 640px) {
+  .only-wide { display: none; }
+  .pay-intro.only-narrow { display: block; }
+  #bid .qr-toggle { display: inline-flex; margin-bottom: 8px; }
+  section[data-step="pay"]:not([hidden]) { display: flex; flex-direction: column; }
+  section[data-step="pay"] .bid-resumed { order: -4; }
+  section[data-step="pay"] .pay-intro { order: -3; }
+  section[data-step="pay"] .bid-actions { order: -2; }
+  section[data-step="pay"] .qr-toggle { order: -1; }
+  #bid:not(.show-qr) .bid-qr { display: none; }
 }
 
 /* Buttons */

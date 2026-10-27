@@ -1,20 +1,22 @@
 // The bid dialog: terms -> save the bid file -> pay. The payment code only
 // appears after the bid file is saved, because that file holds the only copy
-// of the key the tokens are claimed with.
+// of the key the tokens are claimed with. A saved bid can be paid later: on
+// reopening, or from its file.
 
 import { renderSVG } from 'uqr';
-import { bidFile, bidFileName, bidMemo, checkBid, formatZec, makeClaimKey, paymentUri, timing } from './bid.js';
+import { bidFile, bidFileName, bidMemo, checkBid, formatZec, makeClaimKey, paymentUri, priceEcho, priceBoth, resumeBid, timing } from './bid.js';
 import { DRAND, sealBid } from './seal.js';
-import { tokens, zec } from './view-model.js';
+import { moment, tokens } from './view-model.js';
 
 const $ = (id) => document.getElementById(id);
 const STEPS = ['terms', 'save', 'pay'];
 
-const sealTime = (l) => new Date(l.seal.revealAt * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
 export function bidScreen() {
   const dialog = $('bid'), form = $('bidForm');
-  let launch = null, draft = null; // draft: { key, bid, memo, uri }
+  let launch = null, draft = null; // draft: { key?, amountZats, memo, uri, commitment }
+  // Bids whose file was saved but maybe not paid, by launch: only what paying
+  // needs. The claim key stays in the file, not here.
+  const saved = new Map();
 
   function step(name) {
     dialog.querySelectorAll('[data-step]').forEach((s) => { s.hidden = s.dataset.step !== name; });
@@ -25,18 +27,22 @@ export function bidScreen() {
     const t = timing(launch);
     $('bidTiming').textContent = t.note;
     $('bidTiming').classList.toggle('late', !!t.late || !t.open);
+    $('bidLanding').textContent = `It counts if it is mined by block ${launch.endHeight.toLocaleString('en-US')}. The chain is at block ${launch.zcashTip.toLocaleString('en-US')} now${launch.phase === 'bidding' ? `, ${launch.blocksLeft} to go` : ''}.`;
     return t;
   }
 
   function showSummary() {
     const open = showTiming().open;
-    const res = checkBid({ price: form.price.value, amount: form.amount.value, refundTo: form.refundTo.value }, launch);
+    const priceUnit = form.priceUnit.value;
+    $('bidEcho').textContent = priceEcho(form.price.value, priceUnit);
+    form.price.placeholder = priceUnit === 'zats' ? '400' : '0.000004';
+    const res = checkBid({ price: form.price.value, priceUnit, amount: form.amount.value, refundTo: form.refundTo.value }, launch);
     const out = $('bidSummary');
     if (res.problem) {
       out.textContent = form.price.value || form.amount.value ? res.problem : '';
       out.classList.add('problem');
     } else {
-      out.textContent = `If you win in full you get at least ${tokens(res.tokensAtMax, launch.decimals)} tokens. Everyone pays the same clearing price, at most your ${formatZec(res.maxPrice)} ZEC per token; whatever is not spent comes back to your refund address.`;
+      out.textContent = `If you win in full you get at least ${tokens(res.tokensAtMax, launch.decimals)} tokens. Everyone pays the same clearing price, at most your ${priceBoth(res.maxPrice)} per token; whatever is not spent comes back to your refund address.`;
       out.classList.remove('problem');
     }
     form.querySelector('button[type=submit]').disabled = !!res.problem || !open;
@@ -51,7 +57,7 @@ export function bidScreen() {
     const key = await makeClaimKey();
     const memo = await memoFor(key, bid);
     if (!memo) return;
-    draft = { key, bid, memo, uri: paymentUri(launch.bidAddress, bid.amountZats, memo) };
+    draft = { key, bid, amountZats: bid.amountZats, memo, commitment: key.commitment, uri: paymentUri(launch.bidAddress, bid.amountZats, memo) };
     $('bidCommit').textContent = key.commitment;
     step('save');
   });
@@ -71,26 +77,56 @@ export function bidScreen() {
   $('bidSave').addEventListener('click', () => {
     const file = bidFile(draft.key, launch, draft.bid, draft.memo);
     const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
-    const a = Object.assign(document.createElement('a'), { href: url, download: bidFileName(launch, draft.key.commitment) });
+    const name = bidFileName(launch, draft.key.commitment);
+    const a = Object.assign(document.createElement('a'), { href: url, download: name });
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const { amountZats, memo, uri, commitment } = draft;
+    saved.set(launch.launchId, { amountZats, memo, uri, commitment, name });
     showPayment();
   });
 
-  function showPayment() {
+  // Paying a bid saved earlier, from the file the bidder kept.
+  $('bidResume').addEventListener('click', () => $('bidResumeFile').click());
+  $('bidResumeFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const back = resumeBid(await file.text(), launch);
+    if (back.problem) { $('bidResumeNote').textContent = back.problem; return; }
+    draft = back;
+    showPayment(`Paying the bid saved in ${file.name}.`);
+  });
+  $('bidRestart').addEventListener('click', () => {
+    saved.delete(launch.launchId);
+    draft = null;
+    form.reset();
+    showSummary();
+    step('terms');
+  });
+
+  function showPayment(resumedNote) {
+    $('bidResumed').hidden = !resumedNote;
+    $('bidResumed').textContent = resumedNote ?? '';
+    $('bidRestart').hidden = !resumedNote;
+    dialog.classList.remove('show-qr');
     $('bidQr').innerHTML = renderSVG(draft.uri, { border: 2 });
     $('bidAddr').textContent = launch.bidAddress;
-    $('bidAmount').textContent = `${formatZec(draft.bid.amountZats)} ZEC`;
+    $('bidAmount').textContent = `${formatZec(draft.amountZats)} ZEC`;
     const sealed = typeof draft.memo !== 'string';
     $('bidMemo').textContent = sealed
-      ? `Sealed bid, ${draft.memo.length} bytes. It opens at ${sealTime(launch)}; until then nobody can read it, SnarkCity included. It travels only in the payment link.`
+      ? `Sealed bid, ${draft.memo.length} bytes. It opens at ${moment(launch.seal.revealAt)}; until then nobody can read it, SnarkCity included. It travels only in the payment link.`
       : draft.memo;
+    $('bidMemo').classList.toggle('prose', sealed);
     dialog.querySelector('[data-copy="bidMemo"]').hidden = sealed;
     $('bidOpen').href = draft.uri;
     $('bidCli').textContent = `zcash-devtool wallet -w <your wallet> pay -i <identity> --payment-uri '${draft.uri}'`;
     showTiming();
     step('pay');
   }
+
+  // Phones cannot scan their own screen: the QR is for another device.
+  $('bidShowQr').addEventListener('click', () => dialog.classList.toggle('show-qr'));
 
   dialog.addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-copy]');
@@ -101,8 +137,7 @@ export function bidScreen() {
     setTimeout(() => { btn.textContent = label; }, 1500);
   });
 
-  // Closing drops the key from memory. Before the file is saved nothing is
-  // lost; after, the file has everything needed to pay and to claim.
+  // Closing drops the claim key from memory: the saved file has it.
   dialog.addEventListener('close', () => { draft = null; launch = null; });
 
   return {
@@ -110,13 +145,20 @@ export function bidScreen() {
       launch = status;
       draft = null;
       form.reset();
+      $('bidResumeNote').textContent = '';
       $('bidName').textContent = status.name;
-      $('bidReserve').textContent = `${zec(status.reservePrice)} ZEC per token`;
+      $('bidReserve').textContent = `${priceBoth(BigInt(status.reservePrice))} per token`;
       $('bidSupply').textContent = `${tokens(status.supply, status.decimals)} tokens`;
       $('bidSealed').hidden = !status.seal;
-      if (status.seal) $('bidSealed').textContent = `Sealed with drand: your price, refund address and claim-key fingerprint stay encrypted until ${sealTime(status)}, when the drand network publishes the key. Nobody can read them before then, SnarkCity included. The amount you send is not sealed: the launch wallet sees it arrive.`;
-      step('terms');
-      showSummary();
+      if (status.seal) $('bidSealed').textContent = `Sealed with drand: your price, refund address and claim-key fingerprint stay encrypted until ${moment(status.seal.revealAt)}, when the drand network publishes the key. Nobody can read them before then, SnarkCity included. The amount you send is not sealed: the launch wallet sees it arrive.`;
+      const kept = saved.get(status.launchId);
+      if (kept) {
+        draft = kept;
+        showPayment(`You saved ${kept.name} for this launch. Pay it below, or start a new bid.`);
+      } else {
+        step('terms');
+        showSummary();
+      }
       dialog.showModal();
     },
     // Called on every poll so the block count and the late warning stay current.

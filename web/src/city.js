@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { model, CAR_NAMES } from './assets.js';
 import { rng } from './rng.js';
+import { T } from './theme.js';
 
 export const BLOCK = 20, PITCH = 25, TILE = 5;
 const LINES = [-62.5, -37.5, -12.5, 12.5, 37.5, 62.5];
@@ -22,7 +23,7 @@ export function buildDistrict(slotCount) {
   const cars = [];
   const taken = new Set(SLOTS.slice(0, slotCount).map((s) => s.join(',')));
 
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), std('#3B414E', { roughness: 1 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(420, 420), std(T.ground, { roughness: 1 }));
   ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; group.add(ground);
 
   LINES.forEach((lz) => {
@@ -36,7 +37,7 @@ export function buildDistrict(slotCount) {
 
   for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) {
     const cx = i * PITCH, cz = j * PITCH;
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.25, BLOCK), std('#B4B6BB'));
+    const pad = new THREE.Mesh(new THREE.BoxGeometry(BLOCK, 0.25, BLOCK), std(T.block));
     pad.position.set(cx, 0.125, cz); pad.receiveShadow = true; group.add(pad);
     if (i === 0 && j === 0) { addPlaza(group, cx, cz, r); continue; }
     if (taken.has(`${i},${j}`)) continue;
@@ -76,15 +77,15 @@ export function buildDistrict(slotCount) {
 }
 
 function addPlaza(group, cx, cz, r) {
-  const stone = new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), std('#CFC8B8'));
+  const stone = new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 2, 0.3, BLOCK - 2), std(T.plaza));
   stone.position.set(cx, 0.28, cz); group.add(stone);
   for (let k = 0; k < 4; k++) {
     const a = (k / 4) * Math.PI * 2 + Math.PI / 4;
     const t = model('tree_detailed', 5); t.position.set(cx + Math.cos(a) * 6.5, 0.4, cz + Math.sin(a) * 6.5); group.add(t);
   }
-  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 1.2, 24), std('#2A3242'));
+  const plinth = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 1.2, 24), std(T.plinth));
   plinth.position.set(cx, 0.9, cz); group.add(plinth);
-  const mark = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.32, 12, 32), std('#F2B33D', { emissive: new THREE.Color('#F2B33D'), emissiveIntensity: 0.4, metalness: 0.3, roughness: 0.4 }));
+  const mark = new THREE.Mesh(new THREE.TorusGeometry(1.4, 0.32, 12, 32), std(T.accent, { emissive: new THREE.Color(T.accent), emissiveIntensity: 0.4, metalness: 0.3, roughness: 0.4 }));
   mark.position.set(cx, 3.1, cz); mark.userData.spin = true; group.add(mark);
   r();
 }
@@ -103,7 +104,7 @@ function addFiller(group, cx, cz, r, low) {
 }
 
 function addPark(group, cx, cz, r) {
-  const lawn = new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 3, 0.3, BLOCK - 3), std('#6F8F62'));
+  const lawn = new THREE.Mesh(new THREE.BoxGeometry(BLOCK - 3, 0.3, BLOCK - 3), std(T.lawn));
   lawn.position.set(cx, 0.28, cz); lawn.receiveShadow = true; group.add(lawn);
   for (let k = 0; k < 6; k++) {
     const t = model(r() < 0.6 ? 'tree_default' : 'tree_oak', 5 + r() * 2.5);

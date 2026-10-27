@@ -13,6 +13,7 @@ function fakeConnection(claimed = false) {
   const conn = {
     getLatestBlockhash: async () => ({ blockhash: Keypair.generate().publicKey.toBase58(), lastValidBlockHeight: 1 }),
     getAccountInfo: async () => (claimed ? { data: Buffer.alloc(0) } : null),
+    getSignaturesForAddress: async () => [{ signature: "later" }, { signature: "the-claim" }],
     sendRawTransaction: async (raw: Buffer) => { sent.push(raw); return "txid"; },
     confirmTransaction: async () => ({ value: { err: null } }),
   };
@@ -130,4 +131,14 @@ test("the browser refuses a claim that creates your account but pays into anothe
   honest.feePayer = relayer.publicKey;
   honest.recentBlockhash = forged.recentBlockhash;
   assert.ok((await signClaim(bid, honest.serializeMessage(), expect)).signature);
+});
+
+test("a bid's status is read from public data, with the claim transaction once claimed", async () => {
+  const { req, claims } = await bidder();
+  const open = new ClaimRelay(fakeConnection().conn, relayer);
+  assert.deepEqual(await open.status(terms, claims, req.commitment), { status: "claimable", tokens: "2000" });
+  assert.deepEqual(await open.status(terms, [], req.commitment), { status: "no-allocation" });
+  const done = new ClaimRelay(fakeConnection(true).conn, relayer);
+  assert.deepEqual(await done.status(terms, claims, req.commitment), { status: "claimed", tokens: "2000", signature: "the-claim" }, "the oldest transaction on the receipt");
+  await assert.rejects(open.status(terms, claims, "zz"), /malformed/);
 });

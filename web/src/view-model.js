@@ -65,13 +65,13 @@ export const FOGGY = new Set(["bidding", "settling"]);
 
 // What a launch's bidders rely on, in plain words: whether prices were sealed,
 // and who can move the money.
-export function trustLines(status, nowSeconds) {
+export function trustLines(status, nowSeconds, zone) {
   const lines = [];
   if (status.seal) {
-    const at = utcTime(status.seal.revealAt);
+    const at = moment(status.seal.revealAt, zone);
     lines.push(nowSeconds >= status.seal.revealAt
-      ? `Bids sealed to drand round ${status.seal.round}, opened ${at} UTC.`
-      : `Bids sealed to drand round ${status.seal.round}: nobody can open them before ${at} UTC.`);
+      ? `Bids sealed to drand round ${status.seal.round}, opened ${at}.`
+      : `Bids sealed to drand round ${status.seal.round}: nobody can open them before ${at}.`);
   } else {
     lines.push("Bids not sealed: the launch wallet reads each bid's price as it arrives.");
   }
@@ -80,8 +80,18 @@ export function trustLines(status, nowSeconds) {
   return lines;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function utcTime(seconds) {
-  const d = new Date(seconds * 1000);
-  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}, ${d.toISOString().slice(11, 16)}`;
+// One way to write a moment everywhere: "26 Oct, 17:54 UTC", plus the viewer's
+// own clock when it differs: "26 Oct, 17:54 UTC (18:54 your time)".
+export function moment(seconds, zone = Intl.DateTimeFormat().resolvedOptions().timeZone) {
+  const at = new Date(seconds * 1000);
+  const utc = clock(at, 'UTC'), local = clock(at, zone);
+  const base = `${utc.day} ${utc.month}, ${utc.time} UTC`;
+  if (local.day === utc.day && local.time === utc.time) return base;
+  return `${base} (${local.day === utc.day ? '' : `${local.day} ${local.month}, `}${local.time} your time)`;
+}
+
+function clock(date, timeZone) {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+  const p = Object.fromEntries(f.formatToParts(date).map((x) => [x.type, x.value]));
+  return { day: p.day, month: p.month, time: `${p.hour}:${p.minute}` };
 }

@@ -2,6 +2,7 @@
 // relayer pay for a transaction this page checks and signs.
 
 import { b64, readBidFile, recipientProblem, signClaim } from './claim.js';
+import { explain, HttpError } from './errors.js';
 import { tokens } from './view-model.js';
 
 const $ = (id) => document.getElementById(id);
@@ -9,8 +10,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 async function post(path, body) {
   const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({ error: `server error ${res.status}` }));
-  if (!res.ok) throw new Error(data.error ?? `server error ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new HttpError(res.status, data.error);
   return data;
 }
 
@@ -24,11 +25,25 @@ export function claimScreen() {
     out.classList.toggle('problem', problem);
   }
 
+  // bid.status, once checked: what the chain says about this bid.
   function ready() {
     const problem = recipientProblem(form.recipient.value);
-    button.disabled = !bid || !!problem;
+    const done = bid?.status?.status === 'claimed' || bid?.status?.status === 'no-allocation';
+    button.disabled = !bid || !!problem || done;
     if (problem) say(problem, { problem: true });
-    else if (bid) say(`Bid ${bid.commitment.slice(0, 8)}… loaded.${form.recipient.value.trim() ? '' : ` With no address, the tokens go to ${bid.claimAddress}, the key in your bid file.`}`);
+    else if (bid) say(bidNote(bid), { html: true });
+  }
+
+  function bidNote(b) {
+    const to = form.recipient.value.trim() ? '' : ` With no address, they go to ${esc(b.claimAddress)}, the key in your bid file.`;
+    const s = b.status;
+    if (!s) return `Bid ${esc(b.commitment.slice(0, 8))}… loaded.${to}`;
+    if (s.status === 'no-allocation') return 'This bid has no tokens to claim: it lost, or arrived after the window. Its ZEC was refunded on Zcash.';
+    if (s.status === 'claimed') {
+      const link = s.signature ? ` <a href="https://explorer.solana.com/tx/${encodeURIComponent(s.signature)}?cluster=devnet" target="_blank" rel="noopener">See the claim transaction</a>.` : '';
+      return `Already claimed: ${esc(tokens(s.tokens, launch.decimals))} tokens.${link}`;
+    }
+    return `Bid ${esc(b.commitment.slice(0, 8))}… won ${esc(tokens(s.tokens, launch.decimals))} tokens, not claimed yet.${to}`;
   }
 
   form.file.addEventListener('change', async () => {
@@ -41,7 +56,24 @@ export function claimScreen() {
       else bid = read;
     }
     if (bid || !file) ready(); else button.disabled = true;
+    if (bid) await checkStatus(bid);
   });
+
+  // Before anything is signed: has this bid anything to claim, and is it still
+  // unclaimed? The question names only the bid's public fingerprint.
+  async function checkStatus(loaded) {
+    let status;
+    try {
+      status = await post('/api/claim/status', { launchId: launch.launchId, commitment: loaded.commitment });
+    } catch (err) {
+      if (bid === loaded) say(`${explain(err, "check this bid's status")} You can still try to claim.`, { problem: true });
+      return;
+    }
+    if (bid !== loaded) return; // another file was chosen meanwhile
+    loaded.status = status;
+    ready();
+  }
+
   form.recipient.addEventListener('input', ready);
 
   form.addEventListener('submit', async (e) => {
@@ -51,7 +83,7 @@ export function claimScreen() {
     try {
       await claim(form.recipient.value.trim() || bid.claimAddress);
     } catch (err) {
-      say(err.message, { problem: true });
+      say(explain(err, 'claim the tokens'), { problem: true });
       button.disabled = false;
     }
   });

@@ -2,6 +2,8 @@
 // and how to run the same check yourself. Polls while an audit is running.
 
 import { auditCommand, auditRows, envelopeRows, payoutRows, verdict } from './audit-view.js';
+import { explain, HttpError } from './errors.js';
+import { moment } from './view-model.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -13,7 +15,7 @@ export function auditScreen() {
 
   async function load(method = 'GET') {
     const res = await fetch(`/api/audit/${encodeURIComponent(launch.launchId)}/report`, { method, cache: 'no-store' });
-    if (!res.ok) throw new Error(`server error ${res.status}`);
+    if (!res.ok) throw new HttpError(res.status);
     return res.json();
   }
 
@@ -30,7 +32,7 @@ export function auditScreen() {
     $('auditRows').innerHTML = v.report ? auditRows(v.report, launch.decimals).map(([k, x]) => `<div class="row"><dt>${esc(k)}</dt><dd>${esc(x)}</dd></div>`).join('') : '';
     showEnvelopes(v.report);
     showPayouts(v.report);
-    $('auditWhen').textContent = v.checkedAt ? `Last checked ${new Date(v.checkedAt).toLocaleString()}.` : '';
+    $('auditWhen').textContent = v.checkedAt ? `Last checked ${moment(Date.parse(v.checkedAt) / 1000)}.` : '';
     $('auditRerun').disabled = !v.viewingKey || v.running;
     $('auditKey').textContent = v.viewingKey ?? 'Not published yet.';
     const base = `/api/audit/${encodeURIComponent(launch.launchId)}`;
@@ -56,7 +58,7 @@ export function auditScreen() {
   }
 
   async function refresh(method) {
-    try { show(await load(method)); } catch (e) { setVerdict(`Could not load the audit: ${e.message}`, 'bad'); }
+    try { show(await load(method)); } catch (e) { setVerdict(explain(e, 'load the audit'), 'bad'); }
   }
 
   $('auditRerun').addEventListener('click', () => refresh('POST'));

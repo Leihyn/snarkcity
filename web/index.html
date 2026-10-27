@@ -21,13 +21,15 @@
   <div id="loading" class="loading" role="status">
     <div class="loading-name">SnarkCity</div>
     <div class="loading-bar"><span id="loadingFill"></span></div>
-    <div class="loading-note" id="loadingNote">Loading the city</div>
+    <div class="loading-note" id="loadingNote" aria-live="polite">Loading the city</div>
+    <button type="button" class="btn ghost" id="loadingRetry" hidden>Try again now</button>
   </div>
 
   <header class="hud brand panel">
     <div class="brand-name">SnarkCity</div>
     <div class="brand-line">Sealed launches. Public prices.</div>
     <p class="snapshot-note" id="snapshotNote"></p>
+    <p class="conn-note" id="connNote" role="status" hidden></p>
     <dl class="chain">
       <div><dt>Zcash testnet</dt><dd id="zcashTip">…</dd></div>
       <div><dt>Solana</dt><dd>devnet</dd></div>
@@ -58,8 +60,9 @@
       </dl>
       <p class="bid-fine bid-sealed" id="bidSealed" hidden></p>
       <form id="bidForm" autocomplete="off" novalidate>
-        <label>Highest price you will pay <small>ZEC per token</small>
-          <input name="price" inputmode="decimal" placeholder="0.000004" required></label>
+        <label>Highest price you will pay <small>per token</small>
+          <span class="with-unit"><input name="price" inputmode="decimal" placeholder="0.000004" required><select name="priceUnit" aria-label="Price unit"><option value="zec">ZEC</option><option value="zats">zats</option></select></span>
+          <small class="echo" id="bidEcho" aria-live="polite"></small></label>
         <label>Amount to send <small>ZEC</small>
           <input name="amount" inputmode="decimal" placeholder="0.002" required></label>
         <label>Refund address <small>a fresh Zcash testnet address, used for nothing else</small>
@@ -68,6 +71,8 @@
         <button type="submit" class="btn">Create bid</button>
       </form>
       <p class="bid-fine">Your price and amount travel inside an encrypted Zcash memo. The city and other bidders see nothing until the result is final.</p>
+      <p class="bid-fine"><button type="button" class="linkish" id="bidResume">Saved a bid file for this launch already? Pay it</button><input type="file" id="bidResumeFile" accept=".json,application/json" hidden></p>
+      <p class="bid-summary problem" id="bidResumeNote" aria-live="polite"></p>
     </section>
 
     <section data-step="save" hidden>
@@ -78,7 +83,10 @@
     </section>
 
     <section data-step="pay" hidden>
-      <p>Scan with a Zcash testnet wallet and send from your shielded balance. The code fills in the address, amount and memo.</p>
+      <p class="bid-resumed" id="bidResumed" hidden></p>
+      <p class="pay-intro only-wide">Scan with a Zcash testnet wallet and send from your shielded balance. The code fills in the address, amount and memo.</p>
+      <p class="pay-intro only-narrow">Open the payment in your Zcash testnet wallet app and send from your shielded balance. It fills in the address, amount and memo.</p>
+      <button type="button" class="btn ghost only-narrow qr-toggle" id="bidShowQr">Show QR code for another device</button>
       <div class="bid-qr" id="bidQr"></div>
       <dl class="bid-fields">
         <div><dt>To</dt><dd><code id="bidAddr"></code><button type="button" class="copy" data-copy="bidAddr">Copy</button></dd></div>
@@ -90,7 +98,16 @@
         <button type="button" class="btn ghost" data-copy="uri">Copy payment link</button>
       </div>
       <details class="bid-fine"><summary>Paying from the command line</summary><code class="bid-code" id="bidCli"></code></details>
-      <p class="bid-fine">After the window closes you get a receipt memo at your refund address with your tokens and any refund. Claim with your bid file once the tower goes live.</p>
+      <div class="after-send">
+        <h3 class="audit-h">After you send</h3>
+        <ol class="bid-fine">
+          <li>Your wallet's sent list shows the payment. Shielded payments appear nowhere public, so your wallet is the only place to see it.</li>
+          <li id="bidLanding"></li>
+          <li>A payment mined later is refunded in full to your refund address, never lost.</li>
+          <li>After the close a receipt memo arrives at your refund address. Once the tower goes live, load this bid file in Claim: it says what you won, or that your ZEC came back.</li>
+        </ol>
+      </div>
+      <button type="button" class="btn ghost" id="bidRestart" hidden>Start a new bid instead</button>
     </section>
   </dialog>
 

@@ -8,7 +8,11 @@ import { auditScreen } from './audit-screen.js';
 import { claimScreen } from './claim-screen.js';
 import { buildSite } from './site.js';
 import { hash } from './rng.js';
-import { litFraction, PHASE_LABEL, pricePerToken, tokens, trustLines, zec } from './view-model.js';
+import { litFraction, moment, PHASE_LABEL, pricePerToken, tokens, trustLines, zec } from './view-model.js';
+import { explain, HttpError } from './errors.js';
+import { loadTheme } from './theme.js';
+
+const T = await loadTheme();
 
 const POLL_MS = 15_000;
 const canvas = document.getElementById('scene');
@@ -17,8 +21,8 @@ renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
 const scene = new THREE.Scene();
-scene.background = new THREE.Color('#1B2233');
-scene.fog = new THREE.Fog('#1B2233', 140, 320);
+scene.background = new THREE.Color(T.sky);
+scene.fog = new THREE.Fog(T.sky, T.fogNear, T.fogFar);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 900);
 camera.position.set(...VIEW);
 const controls = new OrbitControls(camera, canvas);
@@ -31,8 +35,8 @@ const labels = new CSS2DRenderer();
 labels.domElement.className = 'labels';
 document.getElementById('app').appendChild(labels.domElement);
 
-scene.add(new THREE.HemisphereLight('#C8D6FF', '#2B2F38', 0.95));
-const sun = new THREE.DirectionalLight('#FFE2B8', 1.7);
+scene.add(new THREE.HemisphereLight(T.hemiSky, T.hemiGround, T.hemi));
+const sun = new THREE.DirectionalLight(T.sun, T.sunIntensity);
 sun.position.set(-60, 110, 50);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
@@ -58,8 +62,8 @@ window.addEventListener('resize', resize);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function fetchLaunches() {
-  const res = await fetch('/api/launches', { cache: 'no-store' });
-  if (!res.ok) throw new Error(`api ${res.status}`);
+  const res = await fetch('/api/launches', { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+  if (!res.ok) throw new HttpError(res.status);
   return res.json();
 }
 
@@ -84,7 +88,7 @@ let snapshot = null;
 function apply(data) {
   snapshot = data.snapshot ?? null;
   document.body.toggleAttribute('data-snapshot', !!snapshot);
-  if (snapshot) document.getElementById('snapshotNote').textContent = `Snapshot of ${new Date(snapshot.takenAt).toUTCString()}. Browse launches and check their audits; bidding and claiming need the live server.`;
+  if (snapshot) document.getElementById('snapshotNote').textContent = `Snapshot of ${moment(Date.parse(snapshot.takenAt) / 1000)}. Browse launches and check their audits; bidding and claiming need the live server.`;
   document.getElementById('zcashTip').textContent = data.zcashTip ? data.zcashTip.toLocaleString('en-US') : '…';
   data.launches.slice(0, SLOTS.length).forEach((s) => {
     const entry = sites.get(s.launchId);
@@ -136,7 +140,7 @@ function renderPanel() {
   const list = [...sites.values()];
   const cards = list.map(({ status: s }) => `
     <article class="launch ${selected === s.launchId ? 'on' : ''}" data-id="${esc(s.launchId)}">
-      <button type="button" class="launch-head" data-id="${esc(s.launchId)}">
+      <button type="button" class="launch-head" data-id="${esc(s.launchId)}" data-key="head:${esc(s.launchId)}" aria-expanded="${selected === s.launchId}">
         <span class="launch-name">${esc(s.name)}</span>
         <span class="phase ${s.phase.replace(' ', '-')}">${esc(PHASE_LABEL[s.phase])}</span>
       </button>
@@ -145,18 +149,45 @@ function renderPanel() {
         <dl class="rows">${detailRows(s)}</dl>
         <ul class="trust">${trustLines(s, Date.now() / 1000).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         ${s.pool ? '<p class="note">The pool opens at the clearing price. Its SOL is priced by a live NEAR Intents mainnet quote for the ZEC raised; NEAR Intents has no testnet, so the swap is not executed and the creator seeds the SOL.</p>' : ''}
-        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}">Place a sealed bid</button>` : ''}
-        ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}">Claim tokens</button>` : ''}
-        ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}">Check the result</button>` : ''}
+        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}" data-key="bid:${esc(s.launchId)}">Place a sealed bid</button>` : ''}
+        ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}" data-key="claim:${esc(s.launchId)}">Claim tokens</button>` : ''}
+        ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}" data-key="audit:${esc(s.launchId)}">Check the result</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>
         ${s.pool ? `<a class="ext" href="https://explorer.solana.com/address/${esc(s.pool.id)}?cluster=devnet" target="_blank" rel="noopener">Raydium pool on devnet</a>` : ''}` : ''}
     </article>`).join('');
   const panel = document.getElementById('launches');
-  panel.innerHTML = `<div class="eyebrow">Launches</div>${cards}`;
+  // Redrawing replaces the buttons; keep keyboard focus on the same control.
+  const focused = document.activeElement?.closest?.('#launches [data-key]')?.dataset.key;
+  panel.toggleAttribute('data-picked', !!selected);
+  panel.innerHTML = `<div class="eyebrow">Launches${selected ? '<button type="button" class="all-launches">All launches</button>' : ''}</div>${cards}`;
+  if (focused) focusKey(focused);
+  panel.querySelector('.all-launches')?.addEventListener('click', () => select(selected));
   panel.querySelectorAll('.launch-head').forEach((b) => b.addEventListener('click', () => select(b.dataset.id)));
-  panel.querySelectorAll('.bid-open:not(.claim-open):not(.audit-open)').forEach((b) => b.addEventListener('click', () => bid.open(sites.get(b.dataset.id).status)));
-  panel.querySelectorAll('.claim-open').forEach((b) => b.addEventListener('click', () => claim.open(sites.get(b.dataset.id).status)));
-  panel.querySelectorAll('.audit-open').forEach((b) => b.addEventListener('click', () => auditView.open(sites.get(b.dataset.id).status)));
+  panel.querySelectorAll('.bid-open:not(.claim-open):not(.audit-open)').forEach((b) => b.addEventListener('click', () => { opener = b.dataset.key; bid.open(sites.get(b.dataset.id).status); }));
+  panel.querySelectorAll('.claim-open').forEach((b) => b.addEventListener('click', () => { opener = b.dataset.key; claim.open(sites.get(b.dataset.id).status); }));
+  panel.querySelectorAll('.audit-open').forEach((b) => b.addEventListener('click', () => { opener = b.dataset.key; auditView.open(sites.get(b.dataset.id).status); }));
+}
+
+const focusKey = (key) => {
+  const el = document.querySelector(`#launches [data-key="${CSS.escape(key)}"]`);
+  el?.focus();
+  return el ? true : undefined;
+};
+
+// Closing a dialog puts focus back on the button that opened it, even though
+// the panel has been redrawn since.
+let opener = null;
+for (const id of ['bid', 'claim', 'audit']) {
+  document.getElementById(id).addEventListener('close', () => {
+    const key = opener;
+    opener = null;
+    if (!key) return;
+    // The launch's heading if the button is gone; again a frame later in case
+    // a redraw took focus away in between.
+    const back = () => focusKey(key) ?? focusKey(`head:${key.split(':')[1]}`);
+    back();
+    requestAnimationFrame(() => { if (document.activeElement === document.body) back(); });
+  });
 }
 
 function select(id) {
@@ -165,6 +196,8 @@ function select(id) {
   if (entry) controls.target.copy(entry.site.group.position).add(new THREE.Vector3(0, 8, 0));
   for (const [key, e] of sites) e.chip.classList.toggle('on', key === selected);
   renderPanel();
+  // The details open inside the list; on a phone they would be out of sight.
+  document.querySelector('#launches .launch.on')?.scrollIntoView({ block: 'nearest' });
 }
 
 // Click a site in the 3D view to select it.
@@ -213,14 +246,23 @@ async function start() {
   resize();
   const fill = document.getElementById('loadingFill');
   await loadAll((p) => { fill.style.width = `${Math.round(p * 100)}%`; });
-  const data = await fetchLaunches();
+  const data = await firstLaunches();
   district = buildDistrict(Math.min(data.launches.length, SLOTS.length));
   scene.add(district.group);
   data.launches.slice(0, SLOTS.length).forEach(addSite);
   apply(data);
   document.getElementById('loading').hidden = true;
+  let lastUpdate = Date.now();
   setInterval(async () => {
-    try { apply(await fetchLaunches()); } catch (e) { console.warn('launch update failed', e); }
+    const note = document.getElementById('connNote');
+    try {
+      apply(await fetchLaunches());
+      lastUpdate = Date.now();
+      note.hidden = true;
+    } catch (e) {
+      note.textContent = `${explain(e, 'update the launches')} The city shows the last update, from ${moment(lastUpdate / 1000)}, and keeps trying every 15 seconds.`;
+      note.hidden = false;
+    }
   }, POLL_MS);
   const timer = new THREE.Timer();
   renderer.setAnimationLoop((now) => {
@@ -236,7 +278,26 @@ async function start() {
   });
 }
 
+// The first load waits for the server: it says what is wrong, retries every
+// 15 seconds, and lets the visitor retry at once.
+async function firstLaunches() {
+  for (;;) {
+    try { return await fetchLaunches(); } catch (e) { await retryAfter(explain(e, 'load the launches')); }
+  }
+}
+
+function retryAfter(text) {
+  const note = document.getElementById('loadingNote'), button = document.getElementById('loadingRetry');
+  note.textContent = text;
+  button.hidden = false;
+  return new Promise((resolve) => {
+    const done = () => { clearTimeout(timer); button.removeEventListener('click', done); button.hidden = true; note.textContent = 'Trying again…'; resolve(); };
+    const timer = setTimeout(done, POLL_MS);
+    button.addEventListener('click', done);
+  });
+}
+
 start().catch((e) => {
-  document.getElementById('loadingNote').textContent = `Could not load the city: ${e.message}`;
+  document.getElementById('loadingNote').textContent = explain(e, "load the city's 3D models");
   console.error(e);
 });
