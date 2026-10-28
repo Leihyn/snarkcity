@@ -28,6 +28,9 @@ if (startHeight === undefined || endHeight === undefined || !launch.solana.launc
 // Settle only once the window's last blocks are a few blocks deep, so a chain
 // reorganisation cannot change which bids landed inside it.
 const SETTLE_MARGIN = 3;
+// Payouts per transaction. Shielded outputs cost no extra signatures, so FROST
+// wallets batch like the others.
+const PAYOUTS_PER_TX = 8;
 
 const wallet = { bin: launch.zcash.devtool, dir: launch.zcash.walletDir, identity };
 await refresh(wallet);
@@ -83,9 +86,9 @@ if (unsold > 0n && !after.unsoldWithdrawn) {
 
 if (flag !== "--no-payout") {
   const plan = planPayouts(withLateBids(s.outcomes, scan.rejected), s.price, readSent(db), tip);
-  // A FROST payout pays one recipient per transaction (pczt create takes one).
+  // FROST or not, each transaction pays a batch of payouts, one output each.
   const frost = launch.custody?.kind === "frost" ? launch.custody : null;
-  const groups = batches(plan.payouts, frost ? 1 : 8);
+  const groups = batches(plan.payouts, PAYOUTS_PER_TX);
   const need = plan.payouts.reduce((t, x) => t + x.zats, 0n) + feeEstimateZats(groups.map((g) => g.length));
   const { spendable, pending } = await shieldedBalance(wallet);
   if (plan.payouts.length > 0 && spendable < need) {
@@ -104,8 +107,8 @@ if (flag !== "--no-payout") {
     };
     for (const batch of groups) {
       const r = await payBatch(batch, deps).catch((e: Error) => {
-        // Each payout locks its change until it confirms; with one payout per
-        // transaction (FROST) later ones can run short. Nothing was sent.
+        // Each transaction locks its change until it confirms, so with several
+        // batches later ones can run short. Nothing was sent.
         if (/Insufficient balance/.test(e.message)) return { status: "waiting" as const };
         throw e;
       });

@@ -1,7 +1,8 @@
 // Payouts from a FROST-held launch wallet (see frost/README.md). The launch
-// wallet is watch-only; each payout is built as a PCZT, signed by two of the
-// three key shares, and sent with `pczt send`, which records it in the wallet
-// so a re-run of close-launch sees it pending and never pays twice.
+// wallet is watch-only; each batch of payouts is built as one PCZT (needs the
+// `--uri` option of SnarkCity's zcash-devtool `pczt create`), signed by two of
+// the three key shares, and sent with `pczt send`, which records it in the
+// wallet so a re-run of close-launch sees it pending and never pays twice.
 //
 // Not retried, like every send: a failure after broadcast must not pay twice.
 
@@ -24,12 +25,17 @@ export interface FrostCustody {
   frostSign: string; // frost/frost-sign2 binary
 }
 
-// Pays one recipient from the FROST wallet. Returns the txid.
-export async function frostSend(w: Wallet, c: FrostCustody, to: string, zats: bigint, memo: string): Promise<string> {
+// Pays a ZIP 321 request (as payouts.ts builds them) from the FROST wallet in
+// one transaction: one output per payment, each with its receipt memo, so
+// close-launch's double-pay check sees every payout of the batch. The key
+// signs once per spent note, not per output, so a batch costs no more
+// signatures than a single payout. Returns the txid.
+export async function frostPayUri(w: Wallet, c: FrostCustody, uri: string): Promise<string> {
+  if (payments(uri).length === 0) throw new Error("payment request has no payments");
   const work = mkdtempSync(join(tmpdir(), "sc-frost-"));
   const [plan, proven, signed] = ["plan", "proven", "signed"].map((n) => join(work, `${n}.pczt`));
   try {
-    await pczt(w, ["create", "--address", to, "--value", zats.toString(), "--memo", memo, "--output", plan]);
+    await pczt(w, ["create", "--uri", uri, "--output", plan]);
     await pczt(w, ["prove", plan], proven);
     await signPczt(c, proven, signed);
     return lastTxid(await pczt(w, ["send", signed]));
@@ -38,19 +44,24 @@ export async function frostSend(w: Wallet, c: FrostCustody, to: string, zats: bi
   }
 }
 
-// Pays a single-recipient ZIP 321 request (as payouts.ts builds them) with
-// frostSend, so close-launch can use the same payout plan for FROST wallets.
-export function frostPayUri(w: Wallet, c: FrostCustody, uri: string): Promise<string> {
-  const { to, zats, memo } = singlePayment(uri);
-  return frostSend(w, c, to, zats, memo);
+export interface Payment {
+  to: string;
+  zats: bigint;
+  memo: string;
 }
 
-export function singlePayment(uri: string): { to: string; zats: bigint; memo: string } {
-  const u = new URL(uri.replace(/^zcash:\?/, "zcash://x/?"));
-  const to = u.searchParams.get("address"), amount = u.searchParams.get("amount"), memo = u.searchParams.get("memo");
-  if (!to || !amount || u.searchParams.has("address.1")) throw new Error("a FROST payout pays exactly one recipient");
-  const [whole, frac = ""] = amount.split(".");
-  return { to, zats: BigInt(whole) * 100_000_000n + BigInt(frac.padEnd(8, "0")), memo: memo ? Buffer.from(memo, "base64url").toString("utf8") : "" };
+// Reads every payment of a ZIP 321 request (address, address.1, ...).
+export function payments(uri: string): Payment[] {
+  const q = new URL(uri.replace(/^zcash:\?/, "zcash://x/?")).searchParams;
+  const out: Payment[] = [];
+  for (let i = 0; ; i++) {
+    const sfx = i === 0 ? "" : `.${i}`;
+    const to = q.get(`address${sfx}`), amount = q.get(`amount${sfx}`), memo = q.get(`memo${sfx}`);
+    if (!to) return out;
+    if (!amount) throw new Error(`payment ${i} has no amount`);
+    const [whole, frac = ""] = amount.split(".");
+    out.push({ to, zats: BigInt(whole) * 100_000_000n + BigInt(frac.padEnd(8, "0")), memo: memo ? Buffer.from(memo, "base64url").toString("utf8") : "" });
+  }
 }
 
 // Runs `zcash-devtool pczt -w <wallet> ...`; with `out`, its stdout (a binary PCZT) goes to that file.

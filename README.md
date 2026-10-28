@@ -37,7 +37,7 @@ Each line links to a transaction that shows it. The Zcash explorer shows that a 
 
 **What you need:**
 - Node 23.6 or later (built with Node 25).
-- [zcash-devtool](https://github.com/zcash/zcash-devtool) built at commit `0b3436b`. It talks to `testnet.zec.rocks`.
+- [zcash-devtool](https://github.com/zcash/zcash-devtool) built at commit `0b3436b`. FROST launches also need `frost/zcash-devtool-pczt-create-uri.patch` applied (`git apply` in the zcash-devtool checkout, then rebuild), which lets `pczt create` take a whole ZIP 321 payment request. It talks to `testnet.zec.rocks`.
 - A Solana devnet keypair with a little SOL (`solana airdrop`).
 - Testnet ZEC (TAZ) from the faucet at faucet.testnet.valargroup.dev.
 
@@ -176,6 +176,8 @@ The city and its server are built for many launches, not just the dozen running 
 - **A light index.** `/api/city` lists every launch in about 200 bytes each, with an ETag so an unchanged city costs a 304. `/api/launch/<id>` serves one launch in full, and `/api/launches` can be paged.
 - **Batched Solana reads.** Launch accounts are read 100 per call, and finished launches are cached for two minutes.
 - **Audits stored once.** A finished launch's audit is final: it is computed once and served, not re-run at every start.
+- **Batched FROST refunds.** One FROST-signed transaction pays up to eight refunds, since signing is per note spent, not per recipient. Proven on testnet: [one transaction paying two recipients, each with its own memo](https://blockexplorer.one/zcash/testnet/tx/1f44e677dcad1b030c4f8d7aa4a7a3a11ebeb8c46c08deff9507a9312b4bbd76).
+- **A slow sweep for late payments.** `relayer/scripts/sweep-launches.ts` re-closes every finished launch on a timer, so a payment that lands on an old launch address is still refunded.
 
 Each launch keeps its own Zcash keys, because each one publishes its own viewing key for its audit; a shared key would expose every launch's bids at the first audit. Scanning many launches that are open at the same time still costs one trial decryption per key.
 
@@ -216,6 +218,9 @@ The testnet server drops connections now and then. Read calls retry on their own
 
 **A no-sale launch says "payouts waiting … send the launch wallet a fee float"**
 Refunding a bid in full leaves nothing to pay the network fee with. Send the launch wallet a small payment with no memo (0.0002 TAZ is plenty) and re-run `close-launch`. A payment with no bid memo is not a bid and is not refunded.
+
+**A payment arrived at a launch that has already closed**
+It is refunded in full the next time `close-launch` runs on that launch; paid bids are never paid twice. `node relayer/scripts/sweep-launches.ts <city.json> --every 30` re-closes every finished launch on a timer and logs one line per launch: "payouts waiting" means change or a fee float is still confirming and the next pass retries; "failed" shows the close's error, and the sweep carries on.
 
 **`zcash-devtool wallet pay` waits forever in a script**
 It asks "Continue? [y/n]" before sending. Pass `--disable-confirmation` when paying from a script.

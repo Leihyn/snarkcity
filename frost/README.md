@@ -45,8 +45,11 @@ frost-zcash-demo at `53df99c` (about 600 MB of build files).
 
 ## How a payout is signed
 
-1. `zcash-devtool pczt create` and `pczt prove` build the payout from the
-   watch-only wallet.
+1. `zcash-devtool pczt create --uri <ZIP 321 request>` and `pczt prove`
+   build the payout from the watch-only wallet: one transaction for a batch
+   of up to 8 payouts, one output and receipt memo each. `--uri` is a small
+   SnarkCity patch to zcash-devtool (upstream `pczt create` takes one
+   `--address`).
 2. `zcash-sign sign` prints the transaction's sighash and one randomizer per
    spend, then reads one signature per spend.
 3. `frost-sign2` signs each with two key shares.
@@ -70,6 +73,15 @@ sets up a launch's key and wallet.
   `frostSend` with two of its shares: transaction
   `9cba1c2e5f8a5cb31a0550da58ebde1b3ebbb9183608dcb719629205dd9fd121`, mined
   at height 4551412.
+- On 2026-10-28 the same DKG key paid two recipients in one transaction,
+  as close-launch now batches FROST payouts: `frostPayUri` built one PCZT
+  from a two-payment ZIP 321 request (0.001 and 0.0012 TAZ, each with its own
+  memo), two shares signed both of its spends, and it was sent as
+  transaction
+  `1f44e677dcad1b030c4f8d7aa4a7a3a11ebeb8c46c08deff9507a9312b4bbd76`, mined
+  at height 4551661 (funded by
+  `7aa745eee61ec401cebdf6409cb5ed6e8d8bd44fea2f0b6966c5f2d686caf17a`, height
+  4551649).
 - On 2026-10-25 the Halo launch ran with FROST custody end to end: five sealed
   bids in, then five refunds and receipts out, each signed by two shares
   through `close-launch`. The public audit confirmed every refund paid.

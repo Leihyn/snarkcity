@@ -1,0 +1,73 @@
+diff --git a/src/commands/pczt/create.rs b/src/commands/pczt/create.rs
+index 2679a32..9ba41f0 100644
+--- a/src/commands/pczt/create.rs
++++ b/src/commands/pczt/create.rs
+@@ -40,17 +40,21 @@ pub(crate) struct Command {
+     account_id: Option<Uuid>,
+ 
+     /// The recipient's Unified, Sapling or transparent address
+-    #[arg(long)]
+-    address: String,
++    #[arg(long, required_unless_present = "uri", conflicts_with = "uri")]
++    address: Option<String>,
+ 
+     /// The amount in zatoshis
+-    #[arg(long)]
+-    value: u64,
++    #[arg(long, required_unless_present = "uri", conflicts_with = "uri")]
++    value: Option<u64>,
+ 
+     /// A memo to send to the recipient
+-    #[arg(long)]
++    #[arg(long, conflicts_with = "uri")]
+     memo: Option<String>,
+ 
++    /// A ZIP 321 payment request, which may pay several recipients in one transaction
++    #[arg(long)]
++    uri: Option<String>,
++
+     /// Note management: the number of notes to maintain in the wallet
+     #[arg(long)]
+     #[arg(default_value_t = 4)]
+@@ -89,22 +93,25 @@ impl Command {
+         );
+         let input_selector = GreedyInputSelector::new();
+ 
+-        let request = TransactionRequest::new(vec![
+-            Payment::new(
+-                ZcashAddress::from_str(&self.address)
+-                    .map_err(|_| error::Error::InvalidRecipient)?,
+-                Some(Zatoshis::from_u64(self.value).map_err(|_| error::Error::InvalidAmount)?),
+-                self.memo
+-                    .map(|memo| Memo::from_str(&memo))
+-                    .transpose()?
+-                    .map(MemoBytes::from),
+-                None,
+-                None,
+-                vec![],
+-            )
+-            .map_err(|e| e.with_index(0))?,
+-        ])
+-        .map_err(error::Error::from)?;
++        let request = match (self.uri, self.address, self.value) {
++            (Some(uri), _, _) => TransactionRequest::from_uri(&uri)?,
++            (None, Some(address), Some(value)) => TransactionRequest::new(vec![
++                Payment::new(
++                    ZcashAddress::from_str(&address).map_err(|_| error::Error::InvalidRecipient)?,
++                    Some(Zatoshis::from_u64(value).map_err(|_| error::Error::InvalidAmount)?),
++                    self.memo
++                        .map(|memo| Memo::from_str(&memo))
++                        .transpose()?
++                        .map(MemoBytes::from),
++                    None,
++                    None,
++                    vec![],
++                )
++                .map_err(|e| e.with_index(0))?,
++            ])
++            .map_err(error::Error::from)?,
++            _ => return Err(anyhow!("either --uri or both --address and --value are required")),
++        };
+ 
+         let proposal = propose_transfer(
+             &mut db_data,
