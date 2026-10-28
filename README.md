@@ -19,6 +19,7 @@ Each line links to a transaction that shows it. The Zcash explorer shows that a 
 - **Prices stay sealed until drand opens them.** Halo's close refused to run until drand published round 33373748. Then the bids opened, and the public audit opened them again on its own.
 - **One price for every winner.** Quarry's four bids cleared at 0.000003 ZEC per token. A partial fill, a losing bid and a late bid were refunded in [one payment](https://blockexplorer.one/zcash/testnet/tx/a5b8d2ae0b10ff38147609510a42c13cf21a12570a1e66981b718e5323d7c5fd).
 - **Two of three keys sign every refund.** A 2-of-3 FROST key [spent on the current NU7 testnet](https://blockexplorer.one/zcash/testnet/tx/a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af), then signed each of Halo's payouts ([one of them](https://blockexplorer.one/zcash/testnet/tx/6ff7e56d8a27c82009c8f9e9fc05e25dc44edc1d674c1f9db0e0596cfa3e5f6d)) and [Ashfall's refund](https://blockexplorer.one/zcash/testnet/tx/fc340da84ea11d4aaa4e6d217b363884614e076a5db8f2e1cc3ab4703fb9d302).
+- **Bid sizes can stay hidden too.** On Veil every bid paid the same 0.002 ZEC deposit with its real budget sealed inside, so the launch wallet learned only that four bids arrived. The auction spent each winner's budget, not its deposit, refunded the rest ([one refund](https://blockexplorer.one/zcash/testnet/tx/1a4299d3d1f8710b1eb1dc76c5e06eaab76227ff7e4df54a92ab52bbef6a0749)), and refused a payment of the wrong size, returning it in full ([refund](https://blockexplorer.one/zcash/testnet/tx/bb2edaf91a227a999da9fdc8c06cfe51983e78ec12b37ad0000f4f4d63b1c120)).
 - **A claim pays only the address you chose.** The browser checks the relayer's transaction before signing it: [a claim on Solana devnet](https://explorer.solana.com/tx/5WJVFUWbwKpfTyjXkt1a9FEpRiH7TxMbDs9qcWXdUWkpqbF3Hqt3m8E298NL5kxNw3ABvrhracAxzjx15Khsgc7D?cluster=devnet).
 - **Anyone can check the result.** Each launch publishes its viewing key. The audit re-runs the auction from the Zcash chain, compares it with Solana, and checks every refund.
 
@@ -26,6 +27,7 @@ Each line links to a transaction that shows it. The Zcash explorer shows that a 
 
 - **Sealed bids.** A bid is a shielded Zcash payment whose memo carries the bidder's maximum price, a refund address and the fingerprint of a fresh claim key. The browser time-locks that memo to a [drand](https://drand.love) round set at the window's close. drand is a threshold network run by independent organisations; until it publishes that round, the bid cannot be opened by anyone.
 - **One public price.** A uniform-price auction: bids are ranked by price, the clearing price is the lowest at which demand fits the supply, everyone who wins pays it, the bid at the margin is partly filled, and everything not spent is refunded.
+- **Optional fixed deposits.** A launch can make every bid pay the same deposit and seal its real budget next to its price, so the launch wallet sees how many bids arrive but not how large they are. The unspent part comes back.
 - **Tokens on Solana.** The supply is locked in a claim program before bidding opens. At close, the allocation's Merkle root goes on-chain and each winner claims with the key from their bid file. A relayer pays the fees, so the bidder needs no SOL, and the browser checks the claim pays the address it chose before signing.
 - **Anyone can audit.** Once the result is final, the launch publishes its Zcash viewing key. With it, anyone can re-run the auction from the chain, compare it with what Solana holds, and check every refund was paid in full.
 - **No single key holds the money.** A launch wallet can be a 2-of-3 FROST key: it receives bids as a watch-only wallet, and every refund needs two of three key holders to sign.
@@ -109,7 +111,7 @@ The window is measured in Zcash blocks; drand releases its key at a clock time. 
 |---|---|---|
 | Who bid (the sender) | Nobody | Nobody |
 | A bid's price, refund address, claim fingerprint | Nobody (sealed) | Everyone (opened with drand, readable with the viewing key) |
-| A bid's amount and arrival time | The launch wallet | Everyone (viewing key) |
+| A bid's amount and arrival time | The launch wallet (on fixed-deposit launches, only the deposit) | Everyone (viewing key) |
 | The clearing price and allocation | Nobody | Everyone |
 
 **What you trust, and what you don't need to:**
@@ -119,7 +121,7 @@ The window is measured in Zcash blocks; drand releases its key at a clock time. 
 - **The relayer: nothing.** The claim key signs the whole transaction, and the browser refuses to sign one that pays anyone but the address you chose.
 
 **What it does not hide:**
-- **Payment amounts during bidding.** The launch wallet sees each payment's amount arrive, so the operator knows total demand, but not at what prices. The operator could still bid against its own launch without seeing the others; with prices sealed, that works like a hidden reserve price rather than a targeted manipulation.
+- **Payment amounts during bidding, unless the launch uses a fixed deposit.** The launch wallet sees each payment's amount arrive, so the operator knows total demand, but not at what prices. On a fixed-deposit launch every payment is the same size, so it learns only how many bids arrived. The operator could still bid against its own launch without seeing the others; with prices sealed, that works like a hidden reserve price rather than a targeted manipulation.
 - **The link between a claim and its bid, once the result is public.** A claim on Solana reveals the claim key's fingerprint, which the opened bid also carries, so a claim can be matched to its bid's amount, price and refund address. Never to who paid. The claim screen defaults to a fresh address made from the bid's own key, tied to nothing until you move the tokens, and says so plainly.
 - **Refund-address reuse.** A refund address used in two launches links those bids. The bid screen asks for a fresh one.
 
@@ -158,6 +160,7 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
   - The three winners claimed 2,000 tokens through the browser.
 - **Ashfall: a sealed no-sale with FROST.** Its one sealed bid was mined after the window, so nothing sold: the supply went back to the creator on Solana and the bid was refunded in full by a payment signed with two of three FROST key shares.
 - **Spire: sealed price discovery with FROST.** Four sealed bids competed for 3,000 tokens. The price cleared at about 0.00000317 ZEC per token, where the three highest bids exactly fill the supply, so those three won in full. The bid at 0.000003 lost and was refunded, and a bid mined after the window was refunded as late. All five payouts were signed with two of three FROST key shares, and the public audit opened the bids with drand on its own and checks out.
+- **Veil: fixed deposits, sealed, with FROST.** Four bids each paid the same 0.002 ZEC deposit, with budgets of 0.0015, 0.0012, 0.0008 and 0.0005 ZEC sealed inside. The price cleared at 0.0000035 ZEC per token. The three highest won in full and spent exactly their budgets (0.0035 ZEC raised), the lowest lost, and a fifth payment of 0.0015 ZEC, the wrong size, was refused. All five refunds (the unused deposits, the losing bid, the wrong-size payment) were signed with two of three FROST key shares, and the public audit opened the budgets with drand and checks out.
 - **Lantern: open to bids.** A sealed FROST launch taking bids until Zcash block 4,564,151 (around 1 November 2026), time-locked to drand round 33789607, which opens on 8 November.
 - **FROST on NU7 testnet:** a 2-of-3 key received 0.004 TAZ in the Ironwood pool and spent 0.003 TAZ back. Transaction `a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af`, height 4539854.
 
@@ -173,7 +176,7 @@ Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several test
 
 | Limit | Why it happens | The fix |
 |---|---|---|
-| The launch wallet sees each bid's amount while bidding is open | The amount is the payment, and the receiving wallet has to read it | Fixed-size deposits: every bidder sends the same deposit, the real budget goes inside the sealed memo, and the rest is refunded. The operator learns only how many bids came in |
+| On launches without a fixed deposit, the launch wallet sees each bid's amount while bidding is open | The amount is the payment, and the receiving wallet has to read it | Fixed deposits (built, proven on Veil): every bid sends the same deposit with its budget sealed inside, so the operator learns only how many bids came in. A big buyer who wants more than one deposit's worth makes several bids |
 | Once the result is public, a claim links to its bid (never to who paid) | The claim reveals the claim-key fingerprint that the opened bid carries | A small claim privacy pool: a membership proof with a nullifier, allocations split into fixed claim sizes, claims spread over time |
 | FROST signing runs in one process holding two shares | The demo signs with `frost-sign2`, which needs two shares at once | Each key holder signs on their own machine with `frost-client participant` through `frostd`. Key generation already uses DKG ([a DKG key spending on testnet](https://blockexplorer.one/zcash/testnet/tx/9cba1c2e5f8a5cb31a0550da58ebde1b3ebbb9183608dcb719629205dd9fd121)), so no dealer ever holds the whole key |
 | The tokens live on Solana | Zcash has no custom tokens on mainnet yet | Zcash Shielded Assets, once they are live |
