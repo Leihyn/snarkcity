@@ -25,7 +25,8 @@ export function bidScreen() {
 
   function showTiming() {
     const t = timing(launch);
-    $('bidTiming').textContent = t.note;
+    // A snapshot's block counts stop when it was taken.
+    $('bidTiming').textContent = document.body.hasAttribute('data-snapshot') ? `${t.note} Block counts are as of the snapshot.` : t.note;
     $('bidTiming').classList.toggle('late', !!t.late || !t.open);
     $('bidLanding').textContent = `It counts if it is mined by block ${launch.endHeight.toLocaleString('en-US')}. The chain is at block ${launch.zcashTip.toLocaleString('en-US')} now${launch.phase === 'bidding' ? `, ${launch.blocksLeft} to go` : ''}.`;
     return t;

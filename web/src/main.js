@@ -62,7 +62,7 @@ window.addEventListener('resize', resize);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function fetchLaunches() {
-  const res = await fetch('/api/launches', { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
+  const res = await fetch('api/launches', { cache: 'no-store', signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new HttpError(res.status);
   return res.json();
 }
@@ -88,7 +88,7 @@ let snapshot = null;
 function apply(data) {
   snapshot = data.snapshot ?? null;
   document.body.toggleAttribute('data-snapshot', !!snapshot);
-  if (snapshot) document.getElementById('snapshotNote').textContent = `Snapshot of ${moment(Date.parse(snapshot.takenAt) / 1000)}. Browse launches and check their audits; bidding and claiming need the live server.`;
+  if (snapshot) document.getElementById('snapshotNote').textContent = `Snapshot of ${moment(Date.parse(snapshot.takenAt) / 1000)}. Browse launches and check their audits. You can still make a real sealed bid here and pay it from a Zcash testnet wallet; claiming needs the live server.`;
   document.getElementById('zcashTip').textContent = data.zcashTip ? data.zcashTip.toLocaleString('en-US') : '…';
   data.launches.slice(0, SLOTS.length).forEach((s) => {
     const entry = sites.get(s.launchId);
@@ -149,7 +149,7 @@ function renderPanel() {
         <dl class="rows">${detailRows(s)}</dl>
         <ul class="trust">${trustLines(s, Date.now() / 1000).map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
         ${s.pool ? '<p class="note">The pool opens at the clearing price. Its SOL is priced by a live NEAR Intents mainnet quote for the ZEC raised; NEAR Intents has no testnet, so the swap is not executed and the creator seeds the SOL.</p>' : ''}
-        ${s.phase === 'bidding' && !snapshot ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}" data-key="bid:${esc(s.launchId)}">${esc(bidAction(s))}</button>` : ''}
+        ${s.phase === 'bidding' ? `<button type="button" class="btn bid-open" data-id="${esc(s.launchId)}" data-key="bid:${esc(s.launchId)}">${esc(bidAction(s))}</button>` : ''}
         ${s.phase === 'live' && !snapshot ? `<button type="button" class="btn bid-open claim-open" data-id="${esc(s.launchId)}" data-key="claim:${esc(s.launchId)}">Claim tokens</button>` : ''}
         ${s.phase === 'live' || s.phase === 'no sale' ? `<button type="button" class="btn ghost bid-open audit-open" data-id="${esc(s.launchId)}" data-key="audit:${esc(s.launchId)}">Check the result</button>` : ''}
         <a class="ext" href="https://explorer.solana.com/address/${esc(s.mint)}?cluster=devnet" target="_blank" rel="noopener">Token on Solana devnet</a>

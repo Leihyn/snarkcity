@@ -1,7 +1,8 @@
-// Builds a read-only snapshot of the city that any static host can serve: the
-// page, its assets, and the API answers it reads (launches, audit reports, the
-// terms and viewing key files for running the audit yourself). No server, no
-// keys, no chain access. Bidding and claiming are hidden in snapshot mode.
+// Builds a read-only snapshot of the city that any static host can serve
+// (GitHub Pages included, under a subpath): the page, its assets, and the API
+// answers it reads (launches, audit reports, the terms and viewing key files
+// for running the audit yourself). No server, no keys, no chain access. Sealed
+// bids can still be made in the browser; claiming is hidden in snapshot mode.
 //
 //   node deploy/snapshot.ts <running-server-url> <out-dir>
 //
@@ -45,6 +46,6 @@ for (const l of data.launches as { launchId: string; name: string }[]) {
   console.log(`${l.name}: ${audit.report ? (audit.report.ok ? "audit ok" : "audit FAILED") : "no audit yet"}`);
 }
 
-// Static hosts guess types from extensions; the API paths have none.
-save("vercel.json", JSON.stringify({ headers: [{ source: "/api/(.*)", headers: [{ key: "Content-Type", value: "application/json" }, { key: "Cache-Control", value: "no-store" }] }, { source: "/api/audit/(.*)/viewkey.txt", headers: [{ key: "Content-Type", value: "text/plain" }] }] }, null, 2));
+// GitHub Pages runs Jekyll unless told not to, and Jekyll drops some files.
+save(".nojekyll", "");
 console.log(`snapshot written to ${out}`);

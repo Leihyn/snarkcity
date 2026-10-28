@@ -64,7 +64,7 @@ export function claimScreen() {
   async function checkStatus(loaded) {
     let status;
     try {
-      status = await post('/api/claim/status', { launchId: launch.launchId, commitment: loaded.commitment });
+      status = await post('api/claim/status', { launchId: launch.launchId, commitment: loaded.commitment });
     } catch (err) {
       if (bid === loaded) say(`${explain(err, "check this bid's status")} You can still try to claim.`, { problem: true });
       return;
@@ -90,7 +90,7 @@ export function claimScreen() {
 
   async function claim(recipient) {
     say('Asking the relayer for the claim transaction…');
-    const prepared = await post('/api/claim/prepare', {
+    const prepared = await post('api/claim/prepare', {
       launchId: launch.launchId, commitment: bid.commitment, claimPubkey: bid.claimPubkey, salt: bid.salt, recipient,
     });
     if (prepared.status === 'no-allocation') return say('This bid has no tokens to claim: it lost, or arrived after the window. Its ZEC was refunded on Zcash.');
@@ -99,7 +99,7 @@ export function claimScreen() {
     const signed = await signClaim(bid, b64.decode(prepared.message), { programId: launch.programId, recipient, mint: launch.mint });
     if (signed.problem) throw new Error(signed.problem);
     say('Signed. Sending to Solana…');
-    const { signature } = await post('/api/claim/submit', { message: prepared.message, signature: b64.encode(signed.signature) });
+    const { signature } = await post('api/claim/submit', { message: prepared.message, signature: b64.encode(signed.signature) });
     const link = `https://explorer.solana.com/tx/${encodeURIComponent(signature)}?cluster=devnet`;
     say(`Claimed ${esc(tokens(prepared.tokens, launch.decimals))} tokens to ${esc(recipient)}. <a href="${link}" target="_blank" rel="noopener">See the transaction</a>`, { html: true });
   }
