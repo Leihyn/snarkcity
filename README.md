@@ -10,6 +10,16 @@ SnarkCity is a token launchpad where bids are sealed. Each bid is a shielded Zca
 
 Built for ZECATHON (Private Markets track). Everything below runs on Zcash testnet and Solana devnet.
 
+## Proven on testnet
+
+Each line links to a transaction that shows it. The Zcash explorer shows that a shielded payment happened, never its amount or memo.
+
+- **Prices stay sealed until drand opens them.** Halo's close refused to run until drand published round 33373748. Then the bids opened, and the public audit opened them again on its own.
+- **One price for every winner.** Quarry's four bids cleared at 0.000003 ZEC per token. A partial fill, a losing bid and a late bid were refunded in [one payment](https://blockexplorer.one/zcash/testnet/tx/a5b8d2ae0b10ff38147609510a42c13cf21a12570a1e66981b718e5323d7c5fd).
+- **Two of three keys sign every refund.** A 2-of-3 FROST key [spent on the current NU7 testnet](https://blockexplorer.one/zcash/testnet/tx/a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af), then signed each of Halo's payouts ([one of them](https://blockexplorer.one/zcash/testnet/tx/6ff7e56d8a27c82009c8f9e9fc05e25dc44edc1d674c1f9db0e0596cfa3e5f6d)) and [Ashfall's refund](https://blockexplorer.one/zcash/testnet/tx/fc340da84ea11d4aaa4e6d217b363884614e076a5db8f2e1cc3ab4703fb9d302).
+- **A claim pays only the address you chose.** The browser checks the relayer's transaction before signing it: [a claim on Solana devnet](https://explorer.solana.com/tx/5WJVFUWbwKpfTyjXkt1a9FEpRiH7TxMbDs9qcWXdUWkpqbF3Hqt3m8E298NL5kxNw3ABvrhracAxzjx15Khsgc7D?cluster=devnet).
+- **Anyone can check the result.** Each launch publishes its viewing key. The audit re-runs the auction from the Zcash chain, compares it with Solana, and checks every refund.
+
 ## What it does
 
 - **Sealed bids.** A bid is a shielded Zcash payment whose memo carries the bidder's maximum price, a refund address and the fingerprint of a fresh claim key. The browser time-locks that memo to a [drand](https://drand.love) round set at the window's close. drand is a threshold network run by independent organisations; until it publishes that round, the bid cannot be opened by anyone.
@@ -113,6 +123,10 @@ The window is measured in Zcash blocks; drand releases its key at a clock time. 
 
 ## What is real, and what stands in
 
+### Why the token is on Solana
+
+Everything private happens on Zcash: the bids, the money, the refunds and the audit. Solana only holds the public token ledger, because Zcash has no custom tokens on mainnet yet. Zcash Shielded Assets (ZIPs 226 and 227) would add them. With them, the issuer would send each winner their tokens in a shielded payment, and the audit would check those payments the way it checks refunds today.
+
 | Part | Status |
 |---|---|
 | Shielded bids, encrypted memos, refunds and receipts on Zcash testnet | Real |
@@ -152,14 +166,16 @@ Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several test
 - **The backend drives zcash-devtool,** Zcash's developer CLI, rather than a wallet library. It is the quickest way to the current testnet (NU7, Ironwood pool) and PCZT signing; a production service would use the librustzcash crates directly.
 - **Keys never go in the repo** (`.gitignore`). The hosting image holds none (`deploy/README.md`).
 
-## What comes next
+## Known limits and their fixes
 
-- **Distributed key generation for FROST** (`frost-client dkg`), with the key holders signing through `frostd` rather than in one process.
-- **Unlinkable claims.** A zero-knowledge proof that "my key is one of the winners" alone does not break the link, because the claimed amount still identifies the bid. The full fix is a small privacy pool:
-  - a membership proof with a nullifier
-  - allocations split into fixed claim sizes
-  - claims spread over time
-- **Mainnet:** the NEAR Intents conversion, legal review, and Zcash shielded assets once they are live.
+| Limit | Why it happens | The fix |
+|---|---|---|
+| The launch wallet sees each bid's amount while bidding is open | The amount is the payment, and the receiving wallet has to read it | Fixed-size deposits: every bidder sends the same deposit, the real budget goes inside the sealed memo, and the rest is refunded. The operator learns only how many bids came in |
+| Once the result is public, a claim links to its bid (never to who paid) | The claim reveals the claim-key fingerprint that the opened bid carries | A small claim privacy pool: a membership proof with a nullifier, allocations split into fixed claim sizes, claims spread over time |
+| One machine made all three FROST key shares and signs with two of them | Trusted-dealer key generation, in one process | Distributed key generation (`frost-client dkg`) through `frostd`, each key holder signing on their own machine |
+| The tokens live on Solana | Zcash has no custom tokens on mainnet yet | Zcash Shielded Assets, once they are live |
+
+**For mainnet:** the NEAR Intents conversion executed rather than quoted, and legal review.
 
 ## Troubleshooting
 
