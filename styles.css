@@ -31,14 +31,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 
 /* Loading */
 .loading { position: absolute; inset: 0; z-index: 20; display: grid; place-content: center; gap: 14px; background: var(--night); text-align: center; }
-.loading-name { font-family: var(--display); font-weight: 800; font-size: 56px; letter-spacing: .02em; }
+.loading-name { display: block; height: 48px; margin: 0 auto; }
 .loading-bar { width: 240px; height: 4px; background: var(--felt-2); border-radius: 2px; overflow: hidden; margin: 0 auto; }
 .loading-bar span { display: block; height: 100%; width: 0; background: var(--sodium); transition: width .2s; }
 .loading-note { color: var(--muted); font-family: var(--mono); font-size: 12px; }
 
 /* Brand card */
 .brand { top: 16px; left: 16px; padding: 14px 16px; width: 260px; }
-.brand-name { font-family: var(--display); font-weight: 800; font-size: 34px; line-height: 1; }
+.brand-name { margin: 0; line-height: 0; }
+.brand-name img { height: 28px; }
 .brand-line { color: var(--sodium); font-family: var(--mono); font-size: 12px; margin-top: 4px; }
 .chain { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 0; }
 .chain dt { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -77,7 +78,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 /* Phones: the list becomes a bottom sheet, the brand card shrinks */
 @media (max-width: 640px) {
   .brand { top: 12px; left: 12px; right: 12px; width: auto; padding: 10px 12px; }
-  .brand-name { font-size: 26px; }
+  .brand-name img { height: 22px; }
   .brand .chain { display: none; } /* leaves more of the city in view */
   .launches { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 38%; }
   /* A picked launch replaces the list, so its details are what you see. */
