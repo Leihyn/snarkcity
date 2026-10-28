@@ -128,7 +128,7 @@ function detailRows(s) {
 function phaseNote(s) {
   switch (s.phase) {
     case 'lot': return `Supply is locked on Solana. Bidding opens in ${s.blocksToStart} blocks.`;
-    case 'bidding': return `${s.blocksLeft} blocks left. Bids are shielded Zcash payments: nobody can see who bid or how much.`;
+    case 'bidding': return `${s.blocksLeft} blocks left. Bids are shielded Zcash payments: nobody can see who bid.${s.seal ? ' Prices stay sealed until the close; the launch wallet sees only the amounts.' : ' The launch wallet sees the amounts and, on this unsealed launch, the prices.'}`;
     case 'settling': return 'The window has closed. The result appears once it is final on Solana.';
     case 'no sale': return 'Nothing sold. Every bid was refunded and the supply went back to the creator.';
     case 'live': return 'Everyone paid the same price. Winners claim on Solana with the key from their bid.';
