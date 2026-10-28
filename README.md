@@ -45,7 +45,7 @@ node relayer/scripts/seed-pool.ts launch.json      # opens the trading pool at t
 node relayer/scripts/audit-launch.ts launch.public.json launch.viewkey.txt ./audit-wallet <zcash-devtool>
 ```
 
-A launch file names the wallet, the window (`biddingBlocks`, at least 20), the supply and reserve price, and `"sealed": true` to seal bids with drand.
+A launch file names the wallet, the window (`biddingBlocks`, at least 20), the supply and reserve price, and is sealed with drand unless it says `"sealed": false`.
 
 ## How it works
 
@@ -140,6 +140,8 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
   - All five payouts were signed by two of the launch's three FROST key shares, one transaction each (`3d339a08…`, `6ff7e56d…`, `47052e6f…`, `09cbbcc5…`, `d1d8df21…`). A re-run reported "0 due, 5 already paid".
   - The public audit opened the bids with drand on its own and checks out.
   - The three winners claimed 2,000 tokens through the browser.
+- **Ashfall: a sealed no-sale with FROST.** Its one sealed bid was mined after the window, so nothing sold: the supply went back to the creator on Solana and the bid was refunded in full by a payment signed with two of three FROST key shares.
+- **Lantern: open to bids.** A sealed FROST launch taking bids until Zcash block 4,564,151 (around 1 November 2026), time-locked to drand round 33789607, which opens on 8 November.
 - **FROST on NU7 testnet:** a 2-of-3 key received 0.004 TAZ in the Ironwood pool and spent 0.003 TAZ back. Transaction `a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af`, height 4539854.
 
 Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several tests use real drand beacons pinned in the test, and a planted bug in each security check (round authentication, the late-bid rule, the claim recipient check) makes them fail.
@@ -169,6 +171,12 @@ Received notes need 10 confirmations before they can be spent. Re-run in a few m
 
 **zcash-devtool fails with "No such file or directory" or connection errors**
 The testnet server drops connections now and then. Read calls retry on their own; for `wallet init`, run it again.
+
+**A no-sale launch says "payouts waiting … send the launch wallet a fee float"**
+Refunding a bid in full leaves nothing to pay the network fee with. Send the launch wallet a small payment with no memo (0.0002 TAZ is plenty) and re-run `close-launch`. A payment with no bid memo is not a bid and is not refunded.
+
+**`zcash-devtool wallet pay` waits forever in a script**
+It asks "Continue? [y/n]" before sending. Pass `--disable-confirmation` when paying from a script.
 
 **The bid screen's QR code will not scan**
 A sealed bid's payment link is long (512-byte memo). Use "Copy payment link" and paste it into your wallet, or the command shown under "Paying from the command line".
