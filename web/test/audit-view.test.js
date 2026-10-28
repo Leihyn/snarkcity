@@ -78,3 +78,15 @@ test("each payout links to its Zcash transaction, wrong ones included", async ()
   assert.equal(rows[1].tx.href, ZCASH_TX + txid);
   assert.equal(rows[2].tx, null);
 });
+
+test("fixed deposit: a full win still reads as won although the unused deposit comes back", async () => {
+  const { envelopeRows } = await import("../src/audit-view.js");
+  const report = { price: { num: "300", den: "1" }, envelopes: [
+    { maxPrice: "300", amountZats: "1000000", budgetZats: "600000", tokens: "2000", refundZats: "400000", late: false },
+    { maxPrice: "300", amountZats: "1000000", budgetZats: "600000", tokens: "1000", refundZats: "700000", late: false },
+  ] };
+  const [full, part] = envelopeRows(report, 0);
+  assert.equal(full.label, "Won");
+  assert.equal(part.label, "Partial");
+  assert.match(full.amount, /0.01 ZEC \(budget 0.006\)/);
+});

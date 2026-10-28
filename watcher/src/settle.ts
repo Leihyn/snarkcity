@@ -27,8 +27,11 @@ export interface Settlement {
   outcomes: BidOutcome[]; // one per bid, in input order
 }
 
-export function settle(bids: Bid[], params: LaunchParams): Settlement {
+// A bid may have paid more than it lets the auction spend (a fixed deposit
+// above its budget); the difference is refunded too.
+export function settle(bids: (Bid & { paidZats?: bigint })[], params: LaunchParams): Settlement {
   const result = clearAuction(bids, params);
+  const paid = new Map(bids.map((b) => [b.txid, b.paidZats ?? b.amountZats]));
   const claims = claimsFrom(result.fills);
   return {
     price: result.price,
@@ -40,7 +43,7 @@ export function settle(bids: Bid[], params: LaunchParams): Settlement {
       bidId: f.bid.txid,
       refundTo: f.bid.refundTo ?? null,
       tokens: f.tokens,
-      refundZats: f.refundZats,
+      refundZats: f.refundZats + (paid.get(f.bid.txid) ?? f.bid.amountZats) - f.bid.amountZats,
     })),
   };
 }

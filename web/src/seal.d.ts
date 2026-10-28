@@ -2,6 +2,7 @@
 export interface SealedBid {
   commitment: string;
   maxPrice: bigint;
+  budget?: bigint;
   refundTo?: string;
 }
 export declare const DRAND: { chainHash: string; publicKey: string; genesis: number; period: number };

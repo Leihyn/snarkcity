@@ -44,14 +44,17 @@ export function envelopeRows(report, decimals) {
   const price = report.price ? Number(report.price.num) / Number(report.price.den) : null;
   return (report.envelopes ?? []).map((e) => {
     const p = Number(e.maxPrice);
+    // On a fixed-deposit launch the unused part of the deposit always comes
+    // back; only a refund beyond that means the bid was partly filled.
+    const unused = e.budgetZats !== undefined ? BigInt(e.amountZats) - BigInt(e.budgetZats) : 0n;
     const outcome = e.late ? 'late'
       : price === null || BigInt(e.tokens) === 0n ? 'lost'
-      : p > price || BigInt(e.refundZats) === 0n ? 'won' : 'partial';
+      : p > price || BigInt(e.refundZats) - unused === 0n ? 'won' : 'partial';
     return {
       outcome,
       label: { won: 'Won', partial: 'Partial', lost: 'Lost', late: 'Late' }[outcome],
       maxPrice: `${zec(e.maxPrice)} ZEC`,
-      amount: `${zec(e.amountZats)} ZEC`,
+      amount: `${zec(e.amountZats)} ZEC${e.budgetZats !== undefined ? ` (budget ${zec(e.budgetZats)})` : ''}`,
       tokens: BigInt(e.tokens) > 0n ? tokens(e.tokens, decimals) : '-',
       refund: BigInt(e.refundZats) > 0n ? `${zec(e.refundZats)} ZEC` : '-',
     };

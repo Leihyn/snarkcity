@@ -54,19 +54,23 @@ export function refundAddressProblem(addr) {
 
 // Checks the inputs against the launch's public terms. Returns the parsed
 // values, or the first problem as a sentence.
+// On a fixed-deposit launch `amount` is the budget: the payment is always the
+// deposit, and the budget (sealed) is what the auction may spend of it.
 export function checkBid({ price, priceUnit = 'zec', amount, refundTo }, launch) {
   const maxPrice = parsePrice(price, priceUnit);
-  const amountZats = parseZec(amount);
+  const deposit = launch.deposit ? BigInt(launch.deposit) : null;
+  const budget = parseZec(amount);
   if (maxPrice === null || maxPrice === 0n) return { problem: `Enter your maximum price in ${priceUnit === 'zats' ? 'zats' : 'ZEC'} per token.` };
   if (maxPrice < BigInt(launch.reservePrice)) return { problem: `The reserve price is ${priceBoth(BigInt(launch.reservePrice))} per token. Bids below it are refunded.` };
-  if (amountZats === null || amountZats === 0n) return { problem: 'Enter how much ZEC to send.' };
+  if (budget === null || budget === 0n) return { problem: deposit === null ? 'Enter how much ZEC to send.' : 'Enter your budget in ZEC.' };
+  if (deposit !== null && budget > deposit) return { problem: `Your budget can be at most the ${formatZec(deposit)} ZEC deposit.` };
   const refund = refundAddressProblem(refundTo.trim());
   if (refund) return { problem: refund };
   // Tokens the budget buys at your own maximum price: the fewest you get if
   // you win in full. A lower clearing price buys more with the same budget.
-  const tokensAtMax = (amountZats * 10n ** BigInt(launch.decimals)) / maxPrice;
+  const tokensAtMax = (budget * 10n ** BigInt(launch.decimals)) / maxPrice;
   if (tokensAtMax === 0n) return { problem: 'That amount does not buy any tokens at your price.' };
-  return { maxPrice, amountZats, refundTo: refundTo.trim(), tokensAtMax };
+  return { maxPrice, amountZats: deposit ?? budget, ...(deposit !== null && { budgetZats: budget }), refundTo: refundTo.trim(), tokensAtMax };
 }
 
 export function bidMemo({ commitment, maxPrice, refundTo }) {
@@ -108,6 +112,7 @@ export function bidFile(key, launch, bid, memo) {
     launch: { name: launch.name, launchId: launch.launchId, programId: launch.programId, mint: launch.mint, bidAddress: launch.bidAddress, endHeight: launch.endHeight, ...(launch.seal && { seal: launch.seal }) },
     maxPrice: bid.maxPrice.toString(),
     amountZats: bid.amountZats.toString(),
+    ...(bid.budgetZats !== undefined && { budgetZats: bid.budgetZats.toString() }),
     refundTo: bid.refundTo,
     ...(typeof memo === 'string' ? { memo } : { memoHex: [...memo].map((b) => b.toString(16).padStart(2, '0')).join('') }),
     createdAt: new Date().toISOString(),

@@ -18,6 +18,8 @@
 //   186..  AES-256-GCM ciphertext of commitment (32) | max price u64 (8) | refund address
 //          (UTF-8, zero-padded so every sealed memo is exactly 512 bytes and its
 //          length says nothing about the address)
+// "SC3" is the same with a budget u64 (8) after the max price, for fixed-deposit
+// launches; the address room shrinks by 8 so the memo stays 512 bytes.
 // The first 12 bytes are authenticated as associated data, so the round cannot be swapped.
 
 import { decryptOnG2, encryptOnG2RFC9380, hashedRoundNumber } from '../vendor/tlock-ibe.js';
@@ -32,9 +34,12 @@ export const DRAND = {
 };
 
 const MAGIC = [0xff, 0x53, 0x43, 0x32]; // 0xFF "SC2"
+const MAGIC_BUDGET = [0xff, 0x53, 0x43, 0x33]; // 0xFF "SC3": with a budget
 const HEADER = 12, KEY_CT = 160, IV = 12, LEN = 2, BODY = HEADER + KEY_CT + IV + LEN;
 const MEMO_MAX = 512, TAG = 16;
-const ADDRESS_ROOM = MEMO_MAX - BODY - TAG - 40; // 270 bytes for the refund address
+const PLAIN = MEMO_MAX - BODY - TAG; // 310 bytes of sealed plaintext
+const ADDRESS_ROOM = PLAIN - 40; // 270 bytes for the refund address (262 with a budget)
+const isMagic = (memo, magic) => magic.every((b, i) => memo[i] === b);
 const hex = (h) => Uint8Array.from(h.match(/../g) ?? [], (b) => parseInt(b, 16));
 const toHex = (b) => [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -53,15 +58,17 @@ async function aesKey(raw, use, crypto) {
 }
 
 // Seals a bid to a drand round. Returns the memo bytes.
-export async function sealBid({ commitment, maxPrice, refundTo }, round, crypto = globalThis.crypto) {
-  const header = Uint8Array.from([...MAGIC, ...u64(round)]);
+export async function sealBid({ commitment, maxPrice, budget, refundTo }, round, crypto = globalThis.crypto) {
+  const withBudget = budget !== undefined && budget !== null;
+  const header = Uint8Array.from([...(withBudget ? MAGIC_BUDGET : MAGIC), ...u64(round)]);
   const key = crypto.getRandomValues(new Uint8Array(32));
   const iv = crypto.getRandomValues(new Uint8Array(IV));
+  const fixed = withBudget ? 48 : 40;
   const address = new TextEncoder().encode(refundTo ?? '');
-  if (address.length > ADDRESS_ROOM) throw new Error(`refund address is ${address.length} bytes; a sealed bid holds ${ADDRESS_ROOM}`);
-  const plain = new Uint8Array(40 + ADDRESS_ROOM);
-  plain.set([...hex(commitment), ...u64(maxPrice)]);
-  plain.set(address, 40);
+  if (address.length > PLAIN - fixed) throw new Error(`refund address is ${address.length} bytes; a sealed bid holds ${PLAIN - fixed}`);
+  const plain = new Uint8Array(PLAIN);
+  plain.set([...hex(commitment), ...u64(maxPrice), ...(withBudget ? u64(budget) : [])]);
+  plain.set(address, fixed);
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: header }, await aesKey(key, 'encrypt', crypto), plain));
   const k = await encryptOnG2RFC9380(hex(DRAND.publicKey), hashedRoundNumber(round), key);
   const memo = Uint8Array.from([...header, ...k.U, ...k.V, ...k.W, ...iv, ct.length >> 8, ct.length & 255, ...ct]);
@@ -70,7 +77,7 @@ export async function sealBid({ commitment, maxPrice, refundTo }, round, crypto 
 
 // The drand round a sealed memo opens at, or null if it is not a sealed bid.
 export function sealedRound(memo) {
-  if (!memo || memo.length < BODY + TAG + 40 || MAGIC.some((b, i) => memo[i] !== b)) return null;
+  if (!memo || memo.length < BODY + TAG + 40 || !(isMagic(memo, MAGIC) || isMagic(memo, MAGIC_BUDGET))) return null;
   return Number(new DataView(memo.buffer, memo.byteOffset + 4, 8).getBigUint64(0));
 }
 
@@ -87,8 +94,16 @@ export async function openBid(memo, signatureHex, crypto = globalThis.crypto) {
     const plain = new Uint8Array(await crypto.subtle.decrypt(
       { name: 'AES-GCM', iv, additionalData: memo.slice(0, HEADER) }, await aesKey(key, 'decrypt', crypto), memo.slice(BODY, BODY + len),
     ));
-    const refundTo = new TextDecoder('utf-8', { fatal: true }).decode(plain.slice(40)).replace(/\0+$/, '');
-    return { commitment: toHex(plain.slice(0, 32)), maxPrice: new DataView(plain.buffer, 32, 8).getBigUint64(0), ...(refundTo && { refundTo }) };
+    const withBudget = isMagic(memo, MAGIC_BUDGET);
+    const fixed = withBudget ? 48 : 40;
+    const view = new DataView(plain.buffer);
+    const refundTo = new TextDecoder('utf-8', { fatal: true }).decode(plain.slice(fixed)).replace(/\0+$/, '');
+    return {
+      commitment: toHex(plain.slice(0, 32)),
+      maxPrice: view.getBigUint64(32),
+      ...(withBudget && { budget: view.getBigUint64(40) }),
+      ...(refundTo && { refundTo }),
+    };
   } catch {
     return null; // wrong round's signature, tampered ciphertext, or bad text
   }

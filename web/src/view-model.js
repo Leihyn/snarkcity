@@ -81,6 +81,7 @@ export function trustLines(status, nowSeconds, zone) {
   } else {
     lines.push("Bids not sealed: the launch wallet reads each bid's price as it arrives.");
   }
+  if (status.deposit) lines.push(`Every bid pays the same ${zec(status.deposit)} ZEC deposit: the launch wallet sees how many bids came in, not their size.`);
   const c = status.custody;
   lines.push(c ? `Refunds need ${c.threshold} of ${c.holders} FROST key holders to sign.` : "Refunds are signed by a single operator key.");
   return lines;

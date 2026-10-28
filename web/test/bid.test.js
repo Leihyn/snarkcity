@@ -127,3 +127,14 @@ test("a saved bid file rebuilds the same payment, for this launch only", async (
   assert.match(resumeBid("{", launch).problem, /not JSON/);
   assert.match(resumeBid("{}", launch).problem, /not a bid file/);
 });
+
+test("fixed deposit: the payment is always the deposit, the budget is sealed and spent", () => {
+  const dl = { ...launch, deposit: "1000000" }; // 0.01 ZEC
+  const ok = checkBid({ price: "0.000004", amount: "0.006", refundTo: UA }, dl);
+  assert.equal(ok.amountZats, 1_000_000n, "pays the deposit");
+  assert.equal(ok.budgetZats, 600_000n);
+  assert.equal(ok.tokensAtMax, 1_500_000_000n, "tokens are what the budget buys");
+  assert.match(checkBid({ price: "0.000004", amount: "0.02", refundTo: UA }, dl).problem, /at most the 0.01 ZEC deposit/);
+  assert.match(checkBid({ price: "0.000004", amount: "", refundTo: UA }, dl).problem, /budget/);
+  assert.equal(checkBid({ price: "0.000004", amount: "0.006", refundTo: UA }, launch).budgetZats, undefined, "no deposit, no budget");
+});

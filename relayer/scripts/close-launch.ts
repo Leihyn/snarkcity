@@ -49,7 +49,7 @@ if (launch.seal) {
   }
   received = await unseal(received, launch.seal, signature);
 }
-const scan = scanBids(received, { startHeight, endHeight, ...(launch.seal && { sealedUntil: launch.seal.revealAt }) });
+const scan = scanBids(received, { startHeight, endHeight, ...(launch.seal && { sealedUntil: launch.seal.revealAt }), ...(launch.sale.deposit && { deposit: BigInt(launch.sale.deposit) }) });
 const s = settle(scan.bids, { supply: BigInt(launch.sale.supply), decimals: launch.sale.decimals, reservePrice: BigInt(launch.sale.reservePrice) });
 writeJson(path.replace(/\.json$/, ".settlement.json"), { ...s, rejected: scan.rejected });
 console.log(`${launch.name}: ${scan.bids.length} bids, price ${s.price ? `${s.price.num}/${s.price.den}` : "none"}, ${s.tokensSold} sold, ${s.raisedZats} zats raised`);

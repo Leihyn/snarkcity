@@ -39,7 +39,8 @@ export interface PayoutCheck {
 // addresses or keys, so the page can show every bid after the close.
 export interface Envelope {
   maxPrice: bigint;
-  amountZats: bigint;
+  amountZats: bigint; // what the payment sent
+  budgetZats?: bigint; // fixed-deposit launches: what the bid let the auction spend
   tokens: bigint;
   refundZats: bigint;
   late: boolean;
@@ -80,7 +81,10 @@ export function audit(input: AuditInput): AuditReport {
 }
 
 function envelopesOf(scan: ReturnType<typeof scanBids>, outcomes: { tokens: bigint; refundZats: bigint }[]): Envelope[] {
-  const counted = scan.bids.map((b, i) => ({ maxPrice: b.maxPrice, amountZats: b.amountZats, tokens: outcomes[i].tokens, refundZats: outcomes[i].refundZats, late: false }));
+  const counted = scan.bids.map((b, i) => ({
+    maxPrice: b.maxPrice, amountZats: b.paidZats, ...(b.paidZats !== b.amountZats && { budgetZats: b.amountZats }),
+    tokens: outcomes[i].tokens, refundZats: outcomes[i].refundZats, late: false,
+  }));
   const late = scan.rejected
     .filter((r) => r.reason === "outside window" && r.maxPrice !== undefined)
     .map((r) => ({ maxPrice: r.maxPrice!, amountZats: r.valueZats, tokens: 0n, refundZats: r.valueZats, late: true }));

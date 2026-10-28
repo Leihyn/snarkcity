@@ -28,7 +28,7 @@ export interface LaunchFile {
     startHeight?: number;
     endHeight?: number;
   };
-  sale: { supply: string; decimals: number; reservePrice: string };
+  sale: { supply: string; decimals: number; reservePrice: string; deposit?: string }; // deposit: zats every bid pays, budget sealed inside
   solana: {
     rpc: string;
     keypair: string; // creator and relayer for the demo
@@ -55,6 +55,7 @@ export interface PublicTerms {
   supply: string;
   decimals: number;
   reservePrice: string;
+  deposit?: string;
   programId: string;
   rpc: string;
   mint: string;
@@ -76,6 +77,9 @@ export function launchProblems(l: LaunchFile): string[] {
   }
   if (!(BigInt(l.sale.supply) > 0n)) problems.push("supply must be greater than zero");
   if (!(BigInt(l.sale.reservePrice) >= 0n)) problems.push("reservePrice cannot be negative");
+  // A budget in a plain memo is readable by the launch wallet, which defeats the point.
+  if (l.sale.deposit !== undefined && !(BigInt(l.sale.deposit) > 0n)) problems.push("deposit must be greater than zero");
+  if (l.sale.deposit !== undefined && l.sealed === false) problems.push("a fixed deposit needs sealed bids");
   if (!l.zcash.identity && !l.custody) problems.push("the launch wallet needs an identity file or FROST custody to pay refunds");
   return problems;
 }

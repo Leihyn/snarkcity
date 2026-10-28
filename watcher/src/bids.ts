@@ -23,18 +23,20 @@ export interface Window {
   // Sealed launches: once the bids can be opened, later bids could be placed
   // knowing them, so a bid mined in a block at or after this unix time is late.
   sealedUntil?: number;
+  // Fixed-deposit launches: every bid must pay exactly this and name its budget.
+  deposit?: bigint;
 }
 
 export interface Rejected {
   id: string;
   valueZats: bigint;
-  reason: "unmined" | "outside window" | "no bid memo";
+  reason: "unmined" | "outside window" | "no bid memo" | "wrong deposit";
   refundTo?: string; // set when the memo is a valid bid, so a late bid can be refunded
   maxPrice?: bigint; // likewise, so the opened bids can be shown in full
 }
 
 export interface BidScan {
-  bids: (Bid & { minedHeight: number })[];
+  bids: (Bid & { minedHeight: number; paidZats: bigint })[];
   rejected: Rejected[];
 }
 
@@ -150,7 +152,14 @@ export function scanBids(outputs: ReceivedOutput[], window: Window): BidScan {
     if (o.minedHeight === null) { reject("unmined"); continue; }
     if (o.minedHeight < window.startHeight || o.minedHeight > window.endHeight) { reject("outside window"); continue; }
     if (window.sealedUntil !== undefined && unsealedWhenMined(o, window.sealedUntil)) { reject("outside window"); continue; }
-    scan.bids.push({ txid: id, amountZats: o.valueZats, minedHeight: o.minedHeight, ...memo });
+    // With a fixed deposit every payment is the same size, so the launch wallet
+    // learns only how many bids came in; the sealed budget is what the bid spends.
+    if (window.deposit !== undefined && (o.valueZats !== window.deposit || memo.budget === undefined || memo.budget > o.valueZats)) {
+      reject("wrong deposit");
+      continue;
+    }
+    const amountZats = window.deposit !== undefined ? memo.budget! : o.valueZats;
+    scan.bids.push({ txid: id, ...memo, amountZats, paidZats: o.valueZats, minedHeight: o.minedHeight });
   }
   return scan;
 }

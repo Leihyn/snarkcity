@@ -113,3 +113,27 @@ test("block speed is measured from the wallet's own block times", () => {
   assert.equal(recentBlockSeconds(fakeWalletDb([], times)), 28);
   assert.equal(recentBlockSeconds(fakeWalletDb([], [[1, 0], [2, 75]])), null, "too few blocks to say");
 });
+
+test("fixed deposit: the sealed budget is the bid, the rest of the deposit and wrong deposits come back", async () => {
+  const { withLateBids } = await import("../src/payouts.ts");
+  const out = (n: string, valueZats: bigint, memo: string): ReceivedOutput =>
+    ({ txid: n.repeat(32), outputIndex: 0, minedHeight: 105, valueZats, memo, minedTime: 1 });
+  const window = { startHeight: 100, endHeight: 110, deposit: 1_000_000n };
+  const scan = scanBids([
+    out("aa", 1_000_000n, `SC1 BID c=${C1} p=400 b=600000 r=utest1a`),
+    out("bb", 900_000n, `SC1 BID c=${C2} p=400 b=600000 r=utest1b`), // not the deposit
+    out("cc", 1_000_000n, `SC1 BID c=${C2} p=400 r=utest1c`), // no budget
+    out("dd", 1_000_000n, `SC1 BID c=${C2} p=400 b=1000001 r=utest1d`), // budget above the deposit
+  ], window);
+  assert.equal(scan.bids.length, 1);
+  assert.equal(scan.bids[0].amountZats, 600_000n, "the auction spends only the budget");
+  assert.equal(scan.bids[0].paidZats, 1_000_000n);
+  assert.deepEqual(scan.rejected.map((r) => r.reason), ["wrong deposit", "wrong deposit", "wrong deposit"]);
+
+  const s = settle(scan.bids, { supply: 1000n, decimals: 0, reservePrice: 100n });
+  assert.ok(s.raisedZats > 0n && s.raisedZats <= 600_000n, "never spends past the budget");
+  assert.equal(s.outcomes[0].refundZats + s.raisedZats, 1_000_000n, "every zatoshi of the deposit is spent or refunded");
+  const owed = withLateBids(s.outcomes, scan.rejected);
+  assert.deepEqual(owed.slice(1).map((o) => o.refundZats), [900_000n, 1_000_000n, 1_000_000n], "wrong deposits are refunded in full");
+  assert.equal(scanBids([out("aa", 1_000_000n, `SC1 BID c=${C1} p=400 b=600000`)], { startHeight: 100, endHeight: 110 }).bids[0].amountZats, 1_000_000n, "without a deposit the payment is the budget");
+});

@@ -70,3 +70,13 @@ test("rounds map to drand's schedule", () => {
   assert.equal(roundAt(roundTime(ROUND)), ROUND);
   assert.equal(roundAt(roundTime(ROUND) + 1), ROUND + 1, "a time between rounds waits for the next");
 });
+
+test("a fixed-deposit bid seals its budget too, still in exactly 512 bytes", async () => {
+  const withBudget = { ...bid, budget: 150000n };
+  const memo = await sealBid(withBudget, ROUND);
+  assert.equal(memo.length, 512);
+  assert.equal(sealedRound(memo), ROUND);
+  assert.deepEqual(await openBid(memo, SIG), withBudget);
+  assert.equal((await openBid(await sealBid(bid, ROUND), SIG)).budget, undefined, "an SC2 bid carries no budget");
+  await assert.rejects(sealBid({ ...withBudget, refundTo: "utest1" + "q".repeat(257) }, ROUND), /holds 262/);
+});

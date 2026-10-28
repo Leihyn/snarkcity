@@ -48,12 +48,12 @@ export function receiptedBids(sent: SentOutput[], tip: number): Set<string> {
   return ids;
 }
 
-// Every bid's outcome: settled bids, plus bids mined outside the window, which
-// are refunded in full. Unmined payments are left alone; they may still land
+// Every bid's outcome: settled bids, plus bids mined outside the window or
+// paying the wrong deposit, which are refunded in full. Unmined payments are left alone; they may still land
 // inside the window.
 export function withLateBids(settled: BidOutcome[], rejected: Rejected[]): BidOutcome[] {
   const late = rejected
-    .filter((r) => r.reason === "outside window")
+    .filter((r) => r.reason === "outside window" || r.reason === "wrong deposit")
     .map((r) => ({ bidId: r.id, refundTo: r.refundTo ?? null, tokens: 0n, refundZats: r.valueZats }));
   return [...settled, ...late];
 }

@@ -71,7 +71,7 @@ export function bidScreen() {
       $('bidSummary').classList.add('problem');
       return null;
     }
-    return sealBid({ commitment: key.commitment, maxPrice: bid.maxPrice, refundTo: bid.refundTo }, launch.seal.round);
+    return sealBid({ commitment: key.commitment, maxPrice: bid.maxPrice, budget: bid.budgetZats, refundTo: bid.refundTo }, launch.seal.round);
   }
 
   $('bidSave').addEventListener('click', () => {
@@ -151,7 +151,12 @@ export function bidScreen() {
       $('bidReserve').textContent = `${priceBoth(BigInt(status.reservePrice))} per token`;
       $('bidSupply').textContent = `${tokens(status.supply, status.decimals)} tokens`;
       $('bidSealed').hidden = !status.seal;
-      if (status.seal) $('bidSealed').textContent = `Sealed with drand: your price, refund address and claim-key fingerprint stay encrypted until ${moment(status.seal.revealAt)}, when the drand network publishes the key. Nobody can read them before then, SnarkCity included. The amount you send is not sealed: the launch wallet sees it arrive.`;
+      const deposit = status.deposit ? formatZec(BigInt(status.deposit)) : null;
+      $('bidAmountLabel').textContent = deposit ? 'Your budget' : 'Amount to send';
+      $('bidAmountHint').textContent = deposit ? `ZEC, at most the ${deposit} ZEC deposit` : 'ZEC';
+      if (status.seal) $('bidSealed').textContent = deposit
+        ? `Sealed with drand: your price, budget, refund address and claim-key fingerprint stay encrypted until ${moment(status.seal.revealAt)}, when the drand network publishes the key. Every bid on this launch sends the same ${deposit} ZEC deposit, so the launch wallet learns only how many bids came in, not how large they are. Whatever your budget does not spend comes back.`
+        : `Sealed with drand: your price, refund address and claim-key fingerprint stay encrypted until ${moment(status.seal.revealAt)}, when the drand network publishes the key. Nobody can read them before then, SnarkCity included. The amount you send is not sealed: the launch wallet sees it arrive.`;
       const kept = saved.get(status.launchId);
       if (kept) {
         draft = kept;

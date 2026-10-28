@@ -63,7 +63,7 @@
         <label>Highest price you will pay <small>per token</small>
           <span class="with-unit"><input name="price" inputmode="decimal" placeholder="0.000004" required><select name="priceUnit" aria-label="Price unit"><option value="zec">ZEC</option><option value="zats">zats</option></select></span>
           <small class="echo" id="bidEcho" aria-live="polite"></small></label>
-        <label>Amount to send <small>ZEC</small>
+        <label><span id="bidAmountLabel">Amount to send</span> <small id="bidAmountHint">ZEC</small>
           <input name="amount" inputmode="decimal" placeholder="0.002" required></label>
         <label>Refund address <small>a fresh Zcash testnet address, used for nothing else</small>
           <input name="refundTo" spellcheck="false" placeholder="utest1…" required></label>

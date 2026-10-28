@@ -55,3 +55,11 @@ test("a proof does not verify a different token amount or commitment", () => {
   assert.ok(!verifyProof({ ...allocs[1], tokens: 11n }, proof, rootOf(layers)));
   assert.ok(!verifyProof({ ...allocs[1], commitment: "f".repeat(64) }, proof, rootOf(layers)));
 });
+
+test("a fixed-deposit bid memo carries its budget", () => {
+  const c = "ab".repeat(32);
+  const memo = formatBidMemo({ commitment: c, maxPrice: 400n, budget: 150000n, refundTo: "utest1x" });
+  assert.equal(memo, `SC1 BID c=${c} p=400 b=150000 r=utest1x`);
+  assert.deepEqual(parseBidMemo(memo), { commitment: c, maxPrice: 400n, budget: 150000n, refundTo: "utest1x" });
+  assert.equal(parseBidMemo(`SC1 BID c=${c} p=400 r=utest1x`)?.budget, undefined, "no budget, no field");
+});
