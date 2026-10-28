@@ -135,7 +135,7 @@ Everything private happens on Zcash: the bids, the money, the refunds and the au
 |---|---|
 | Shielded bids, encrypted memos, refunds and receipts on Zcash testnet | Real |
 | drand time-locked bids, opened at close and in the audit | Real (drand mainnet "quicknet") |
-| 2-of-3 FROST custody of the launch wallet, signing on the current NU7 testnet | Real. The launches' keys came from a trusted dealer; key generation by DKG, with no dealer, is proven separately on testnet (see `frost/README.md`) |
+| 2-of-3 FROST custody of the launch wallet, signing on the current NU7 testnet | Real. Gale's key was made by DKG, with no dealer; the earlier launches' keys came from a trusted dealer (see `frost/README.md`) |
 | Uniform-price auction, Merkle claims, relayed claims on Solana devnet | Real |
 | Public audit from the viewing key | Real |
 | Trading pool on Raydium (CPMM, devnet), LP burned | Real pool. Its SOL side is seeded by the creator, priced by the quote below |
@@ -161,6 +161,7 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
 - **Ashfall: a sealed no-sale with FROST.** Its one sealed bid was mined after the window, so nothing sold: the supply went back to the creator on Solana and the bid was refunded in full by a payment signed with two of three FROST key shares.
 - **Spire: sealed price discovery with FROST.** Four sealed bids competed for 3,000 tokens. The price cleared at about 0.00000317 ZEC per token, where the three highest bids exactly fill the supply, so those three won in full. The bid at 0.000003 lost and was refunded, and a bid mined after the window was refunded as late. All five payouts were signed with two of three FROST key shares, and the public audit opened the bids with drand on its own and checks out.
 - **Veil: fixed deposits, sealed, with FROST.** Four bids each paid the same 0.002 ZEC deposit, with budgets of 0.0015, 0.0012, 0.0008 and 0.0005 ZEC sealed inside. The price cleared at 0.0000035 ZEC per token. The three highest won in full and spent exactly their budgets (0.0035 ZEC raised), the lowest lost, and a fifth payment of 0.0015 ZEC, the wrong size, was refused. All five refunds (the unused deposits, the losing bid, the wrong-size payment) were signed with two of three FROST key shares, and the public audit opened the budgets with drand and checks out.
+- **Gale: a key nobody ever held, and every refund in one transaction.** Gale's 2-of-3 FROST key was made by distributed key generation, so the whole key never existed anywhere. Three sealed bids cleared at 0.000003 ZEC per token and sold all 800 tokens; the lowest bid was partly filled, and a bid sent after the window was refunded as late. `close-launch` paid all four refunds and receipts in [one FROST-signed transaction](https://blockexplorer.one/zcash/testnet/tx/64778fb9adb8513db595b43d2e2f807053b82b31bcfebeaadcd398261fa3b976), and the public audit checks out.
 - **Lantern: open to bids.** A sealed FROST launch taking bids until Zcash block 4,564,151 (around 1 November 2026), time-locked to drand round 33789607, which opens on 8 November.
 - **FROST on NU7 testnet:** a 2-of-3 key received 0.004 TAZ in the Ironwood pool and spent 0.003 TAZ back. Transaction `a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af`, height 4539854.
 
@@ -176,7 +177,7 @@ The city and its server are built for many launches, not just the dozen running 
 - **A light index.** `/api/city` lists every launch in about 200 bytes each, with an ETag so an unchanged city costs a 304. `/api/launch/<id>` serves one launch in full, and `/api/launches` can be paged.
 - **Batched Solana reads.** Launch accounts are read 100 per call, and finished launches are cached for two minutes.
 - **Audits stored once.** A finished launch's audit is final: it is computed once and served, not re-run at every start.
-- **Batched FROST refunds.** One FROST-signed transaction pays up to eight refunds, since signing is per note spent, not per recipient. Proven on testnet: [one transaction paying two recipients, each with its own memo](https://blockexplorer.one/zcash/testnet/tx/1f44e677dcad1b030c4f8d7aa4a7a3a11ebeb8c46c08deff9507a9312b4bbd76).
+- **Batched FROST refunds.** One FROST-signed transaction pays up to eight refunds, since signing is per note spent, not per recipient. Proven on testnet: Gale's close paid [four refunds and receipts in one transaction](https://blockexplorer.one/zcash/testnet/tx/64778fb9adb8513db595b43d2e2f807053b82b31bcfebeaadcd398261fa3b976).
 - **A slow sweep for late payments.** `relayer/scripts/sweep-launches.ts` re-closes every finished launch on a timer, so a payment that lands on an old launch address is still refunded.
 
 Each launch keeps its own Zcash keys, because each one publishes its own viewing key for its audit; a shared key would expose every launch's bids at the first audit. Scanning many launches that are open at the same time still costs one trial decryption per key.
