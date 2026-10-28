@@ -155,6 +155,7 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
   - The public audit opened the bids with drand on its own and checks out.
   - The three winners claimed 2,000 tokens through the browser.
 - **Ashfall: a sealed no-sale with FROST.** Its one sealed bid was mined after the window, so nothing sold: the supply went back to the creator on Solana and the bid was refunded in full by a payment signed with two of three FROST key shares.
+- **Spire: sealed price discovery with FROST.** Four sealed bids competed for 3,000 tokens. The price cleared at about 0.00000317 ZEC per token, where the three highest bids exactly fill the supply, so those three won in full. The bid at 0.000003 lost and was refunded, and a bid mined after the window was refunded as late. All five payouts were signed with two of three FROST key shares, and the public audit opened the bids with drand on its own and checks out.
 - **Lantern: open to bids.** A sealed FROST launch taking bids until Zcash block 4,564,151 (around 1 November 2026), time-locked to drand round 33789607, which opens on 8 November.
 - **FROST on NU7 testnet:** a 2-of-3 key received 0.004 TAZ in the Ironwood pool and spent 0.003 TAZ back. Transaction `a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af`, height 4539854.
 
