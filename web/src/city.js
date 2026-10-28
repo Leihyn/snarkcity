@@ -18,7 +18,8 @@ export const VIEW = [105, 92, 125];
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: new THREE.Color(color), roughness: 0.9 }, o));
 
-export function buildDistrict(slotCount) {
+// `skyline: false` leaves the outer ring empty for the archive of launches.
+export function buildDistrict(slotCount, { skyline = true } = {}) {
   const group = new THREE.Group();
   const r = rng(20261028);
   const cars = [];
@@ -48,10 +49,10 @@ export function buildDistrict(slotCount) {
     if (r() < 0.16) addPark(group, cx, cz, r); else addFiller(group, cx, cz, r, low);
   }
 
-  const skyline = ['low-detail-building-a', 'low-detail-building-b', 'low-detail-building-c', 'low-detail-building-d', 'low-detail-building-e', 'low-detail-building-f', 'low-detail-building-g', 'low-detail-building-h', 'low-detail-building-wide-a', 'low-detail-building-wide-b'];
-  for (let k = 0; k < 70; k++) {
+  const skylineModels = ['low-detail-building-a', 'low-detail-building-b', 'low-detail-building-c', 'low-detail-building-d', 'low-detail-building-e', 'low-detail-building-f', 'low-detail-building-g', 'low-detail-building-h', 'low-detail-building-wide-a', 'low-detail-building-wide-b'];
+  for (let k = 0; k < (skyline ? 70 : 0); k++) {
     const ang = r() * Math.PI * 2, rad = 82 + r() * 70;
-    const b = model(skyline[Math.floor(r() * skyline.length)], 10 + r() * 8);
+    const b = model(skylineModels[Math.floor(r() * skylineModels.length)], 10 + r() * 8);
     b.position.set(Math.cos(ang) * rad, 0, Math.sin(ang) * rad); b.rotation.y = Math.floor(r() * 4) * Math.PI / 2; group.add(b);
   }
 
