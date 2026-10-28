@@ -166,6 +166,19 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
 
 Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several tests use real drand beacons pinned in the test, and a planted bug in each security check (round authentication, the late-bid rule, the claim recipient check) makes them fail.
 
+## Scaling to thousands of launches
+
+The city and its server are built for many launches, not just the dozen running on testnet. Tested with a synthetic 2,000-launch city.
+
+- **Downtown and the archive.** Up to twelve launches stand downtown as full buildings: the ones bidding, counting or opening soon, then the newest. Every other launch stands in the archive around the district, drawn as one instanced mesh, with windows lit by the shader from each launch's claimed share. A launch's archive plot comes from its rank by creation, so new launches add plots at the edge and no building ever moves.
+- **A directory that scales.** Tabs with counts (Bidding, Opening soon, Counting, Live, No sale), search by name, four sorts, and a list that keeps only the rows in view in the page (about 20 of 2,000).
+- **A link per launch.** `#launch/<id>` opens the city on that launch, downtown or in the archive, on the live server and on the Pages snapshot.
+- **A light index.** `/api/city` lists every launch in about 200 bytes each, with an ETag so an unchanged city costs a 304. `/api/launch/<id>` serves one launch in full, and `/api/launches` can be paged.
+- **Batched Solana reads.** Launch accounts are read 100 per call, and finished launches are cached for two minutes.
+- **Audits stored once.** A finished launch's audit is final: it is computed once and served, not re-run at every start.
+
+Each launch keeps its own Zcash keys, because each one publishes its own viewing key for its audit; a shared key would expose every launch's bids at the first audit. Scanning many launches that are open at the same time still costs one trial decryption per key.
+
 ## License
 
 MIT, see `LICENSE`. Parts written by others keep their own licenses:
