@@ -10,6 +10,8 @@ SnarkCity is a token launchpad where bids are sealed. Each bid is a shielded Zca
 
 Built for ZECATHON (Private Markets track). Everything below runs on Zcash testnet and Solana devnet.
 
+**See it in your browser:** [leihyn.github.io/snarkcity](https://leihyn.github.io/snarkcity/), a snapshot of the live city. Open any launch, check its audit and download its viewing key, or make a real sealed bid on Lantern (sealing runs in your browser; paying needs a Zcash testnet wallet). Claiming needs the live server.
+
 ## Proven on testnet
 
 Each line links to a transaction that shows it. The Zcash explorer shows that a shielded payment happened, never its amount or memo.
