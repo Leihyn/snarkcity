@@ -1,7 +1,7 @@
 // Builds a read-only snapshot of the city that any static host can serve
 // (GitHub Pages included, under a subpath): the page, its assets, and the API
-// answers it reads (launches, audit reports, the terms and viewing key files
-// for running the audit yourself). No server, no keys, no chain access. Sealed
+// answers it reads (the city index, each launch in full, the full list, audit
+// reports, the terms and viewing key files for running the audit yourself). No server, no keys, no chain access. Sealed
 // bids can still be made in the browser; claiming is hidden in snapshot mode.
 //
 //   node deploy/snapshot.ts <running-server-url> <out-dir>
@@ -34,9 +34,14 @@ function save(path: string, body: string | Uint8Array) {
   writeFileSync(file, body);
 }
 
+// The city switches to snapshot mode on the snapshot field, in both the index
+// it reads now and the full list older pages read.
+const snapshot = { takenAt: new Date().toISOString() };
 const data = await (await get("/api/launches")).json();
-save("api/launches", JSON.stringify({ ...data, snapshot: { takenAt: new Date().toISOString() } }));
+save("api/launches", JSON.stringify({ ...data, snapshot }));
+save("api/city", JSON.stringify({ ...(await (await get("/api/city")).json()), snapshot }));
 for (const l of data.launches as { launchId: string; name: string }[]) {
+  save(`api/launch/${l.launchId}`, await (await get(`/api/launch/${l.launchId}`)).text());
   const base = `/api/audit/${l.launchId}`;
   const audit = await (await get(`${base}/report`)).json();
   if (audit.running || (audit.viewingKey && !audit.report)) console.warn(`${l.name}: audit still running; snapshot shows it as running`);

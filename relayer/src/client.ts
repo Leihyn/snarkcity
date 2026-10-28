@@ -83,11 +83,9 @@ export interface LaunchState {
 // Must match NO_SALE_ROOT in the program.
 const NO_SALE_ROOT = Buffer.alloc(32, 0xff);
 
-export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchId: bigint): Promise<LaunchState> {
-  // Account names from the IDL are camel-cased by the Anchor client.
-  const a = await (p.account as Record<string, { fetch(k: PublicKey): Promise<Record<string, unknown>> }>).launch.fetch(
-    launchPda(creator, launchId),
-  );
+// Maps a decoded launch account (field names camel-cased by the Anchor client)
+// to the state the relayer and the city use.
+function launchState(a: Record<string, unknown>): LaunchState {
   const root = Buffer.from(a.root as number[]);
   const unset = root.equals(Buffer.alloc(32));
   const noSale = root.equals(NO_SALE_ROOT);
@@ -102,6 +100,33 @@ export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchI
     claimed: BigInt(String(a.claimed)),
     unsoldWithdrawn: Boolean(a.unsoldWithdrawn),
   };
+}
+
+export async function fetchLaunch(p: anchor.Program, creator: PublicKey, launchId: bigint): Promise<LaunchState> {
+  const a = await (p.account as Record<string, { fetch(k: PublicKey): Promise<Record<string, unknown>> }>).launch.fetch(
+    launchPda(creator, launchId),
+  );
+  return launchState(a);
+}
+
+// getMultipleAccountsInfo takes at most 100 keys per call.
+const BATCH = 100;
+
+// Reads many launch accounts in a few RPC calls instead of one per launch, so
+// a city of thousands of launches costs tens of requests. A launch with no
+// account yet comes back null, in the order asked for.
+export async function fetchLaunches(
+  connection: Connection, launches: { creator: string; launchId: string }[],
+): Promise<(LaunchState | null)[]> {
+  // The program's coder decodes the same way fetchLaunch does; the wallet is never used.
+  const coder = program(connection, Keypair.generate()).coder.accounts;
+  const keys = launches.map((l) => launchPda(new PublicKey(l.creator), BigInt(l.launchId)));
+  const states: (LaunchState | null)[] = [];
+  for (let i = 0; i < keys.length; i += BATCH) {
+    const infos = await connection.getMultipleAccountsInfo(keys.slice(i, i + BATCH), "confirmed");
+    for (const info of infos) states.push(info ? launchState(coder.decode("launch", info.data)) : null);
+  }
+  return states;
 }
 
 export interface Allocation {

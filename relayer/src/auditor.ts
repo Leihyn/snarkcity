@@ -16,6 +16,14 @@ export const launchFiles = (publicPath: string) => {
 // A re-run is refused within this long of the last one finishing.
 const RERUN_AFTER_MS = 60_000;
 
+// Whether server start re-checks a launch. A passed audit of a final launch is
+// kept: nothing it checks can change any more, and re-running thousands of
+// them would sync thousands of wallets at every start. A launch never audited
+// waits until someone asks for its report.
+export function auditOnStart(saved: { ok: boolean } | null, final: boolean): boolean {
+  return saved !== null && !(saved.ok && final);
+}
+
 export class Auditor {
   private running = new Set<string>();
   private errors = new Map<string, string>();
@@ -49,6 +57,11 @@ export class Auditor {
     this.run(publicPath, v.viewingKey)
       .catch((e) => this.errors.set(publicPath, (e as Error).message.split("\n")[0]))
       .finally(() => this.running.delete(publicPath));
+  }
+
+  // Server start: re-runs a stored audit that failed or predates the result.
+  startIfStale(publicPath: string, final: boolean) {
+    if (auditOnStart(this.view(publicPath).report, final)) this.start(publicPath, true);
   }
 
   private async run(publicPath: string, viewingKey: string) {
