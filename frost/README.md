@@ -22,7 +22,26 @@ key, so it can receive bids and build payouts but never sign them.
   Foundation's `reddsa` and `frost-core`/`frost-rerandomized`: it runs both
   FROST rounds for two key holders in one process and prints only the
   aggregated signature, after checking it against the randomized key.
-- Key generation uses the Zcash Foundation's `frost-client trusted-dealer`.
+- Key generation uses the Zcash Foundation's `frost-client dkg`, coordinated
+  by their `frostd` server (same repo and commit), or `frost-client
+  trusted-dealer` for quick tests.
+
+## How the key is made
+
+`relayer/scripts/frost-wallet.ts --dkg <frostd host:port>` runs distributed
+key generation: each of the three holders runs its own `frost-client dkg`
+process, after swapping contacts (communication public keys) so that `frostd`
+only relays messages encrypted between them. Each process ends with its own
+share in its own config file; the full spending key is never computed by
+anyone. Without `--dkg` the script falls back to a trusted dealer, which makes
+the whole key in one process and splits it.
+
+`frostd` only speaks HTTPS. For a local run, make a CA and a `localhost`
+certificate (openssl is enough), start
+`frostd -i 127.0.0.1 -p 2744 -c localhost.pem -k localhost.key`, and run the
+script with `SSL_CERT_FILE=ca.pem`, which `frost-client` reads for its trusted
+roots. Build `frostd` with `cargo build --release -p frostd` in
+frost-zcash-demo at `53df99c` (about 600 MB of build files).
 
 ## How a payout is signed
 
@@ -43,7 +62,15 @@ sets up a launch's key and wallet.
   0.003 TAZ back with a two-share signature: testnet transaction
   `a68f1077570133a25e614756fe17ed48959167649b3b902be3c979b2cd4b47af`, mined at
   height 4539854.
-- The same day the Halo launch ran with FROST custody end to end: five sealed
+- On 2026-10-28 a 2-of-3 key made by DKG (three `frost-client dkg`
+  processes through a local `frostd`, no dealer) received 0.002 TAZ in
+  transaction
+  `9b1105974ccd3735d9fc4a67b2979ce9b2a1cf4e9263c7cdefad6e1954e1699a`
+  (height 4551398) and, after 10 confirmations, spent 0.0015 TAZ back through
+  `frostSend` with two of its shares: transaction
+  `9cba1c2e5f8a5cb31a0550da58ebde1b3ebbb9183608dcb719629205dd9fd121`, mined
+  at height 4551412.
+- On 2026-10-25 the Halo launch ran with FROST custody end to end: five sealed
   bids in, then five refunds and receipts out, each signed by two shares
   through `close-launch`. The public audit confirmed every refund paid.
 - One bug found and fixed on the way: `zcash-sign` prints every randomizer
@@ -54,11 +81,14 @@ sets up a launch's key and wallet.
 
 ## Limits, said plainly
 
-- **Trusted dealer.** One machine generates all three shares, so it saw the
-  whole key. A real launch would use `frost-client dkg`, where no party ever
-  holds it.
-- **One process signs.** `frost-sign2` holds two shares at once. With separate
-  key holders, each runs `frost-client participant` against a `frostd` server.
+- **DKG ran on one machine.** The key is made by DKG, so no process ever
+  holds the whole key, but in the demo all three holders' processes and
+  `frostd` ran on the same laptop, and their share files sit side by side in
+  one directory. A real launch puts each holder on their own machine.
+- **One process signs.** `frost-sign2` holds two shares at once, and two of
+  three shares are enough to rebuild the key, so for the length of a signing
+  that process could. DKG removes the dealer, not this. With separate key
+  holders, each runs `frost-client participant` against a `frostd` server.
 - **Testnet only.** The viewing key keeps upstream's derivation, which is not
   quantum-recoverable under ZIP 2005.
 - **Amounts are visible to the wallet.** FROST controls who can spend, not who
