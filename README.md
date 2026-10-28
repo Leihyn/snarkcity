@@ -173,7 +173,7 @@ Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several test
 |---|---|---|
 | The launch wallet sees each bid's amount while bidding is open | The amount is the payment, and the receiving wallet has to read it | Fixed-size deposits: every bidder sends the same deposit, the real budget goes inside the sealed memo, and the rest is refunded. The operator learns only how many bids came in |
 | Once the result is public, a claim links to its bid (never to who paid) | The claim reveals the claim-key fingerprint that the opened bid carries | A small claim privacy pool: a membership proof with a nullifier, allocations split into fixed claim sizes, claims spread over time |
-| One machine made all three FROST key shares and signs with two of them | Trusted-dealer key generation, in one process | Distributed key generation (`frost-client dkg`) through `frostd`, each key holder signing on their own machine |
+| FROST signing runs in one process holding two shares | The demo signs with `frost-sign2`, which needs two shares at once | Each key holder signs on their own machine with `frost-client participant` through `frostd`. Key generation already uses DKG ([a DKG key spending on testnet](https://blockexplorer.one/zcash/testnet/tx/9cba1c2e5f8a5cb31a0550da58ebde1b3ebbb9183608dcb719629205dd9fd121)), so no dealer ever holds the whole key |
 | The tokens live on Solana | Zcash has no custom tokens on mainnet yet | Zcash Shielded Assets, once they are live |
 
 **For mainnet:** the NEAR Intents conversion executed rather than quoted, and legal review.
