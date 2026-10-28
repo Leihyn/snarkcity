@@ -166,6 +166,13 @@ Launches run end to end on testnet and devnet (bid, close, refunds, claim, audit
 
 Tests: `npm test` in `auction/`, `watcher/`, `relayer/` and `web/`. Several tests use real drand beacons pinned in the test, and a planted bug in each security check (round authentication, the late-bid rule, the claim recipient check) makes them fail.
 
+## License
+
+MIT, see `LICENSE`. Parts written by others keep their own licenses:
+- `frost/zcash-sign-nu7/` is ported from the Zcash Foundation's `zcash-sign` (MIT or Apache-2.0, license files included).
+- `web/vendor/tlock-ibe.js` bundles drand's tlock-js 0.9.0 (MIT or Apache-2.0) with @noble/curves and @noble/hashes (MIT).
+- The 3D models in `web/assets/` are Kenney's CC0 kits (`web/assets/licenses/`).
+
 ## Security notes
 
 - **npm audit** reports 13 advisories in `relayer/`'s dependencies (6 high), all through the standard Solana libraries (`@solana/web3.js` 1.x, `@solana/spl-token`, Anchor); the Raydium SDK adds none of its own. The offered fixes are a major web3.js upgrade or a years-old spl-token downgrade. Whether each advisory is reachable from SnarkCity's code has not been traced. For a devnet demo they are recorded here rather than changed days before the deadline; a mainnet build should move to `@solana/kit`.
