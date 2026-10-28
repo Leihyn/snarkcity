@@ -131,7 +131,7 @@ Everything private happens on Zcash: the bids, the money, the refunds and the au
 |---|---|
 | Shielded bids, encrypted memos, refunds and receipts on Zcash testnet | Real |
 | drand time-locked bids, opened at close and in the audit | Real (drand mainnet "quicknet") |
-| 2-of-3 FROST custody of the launch wallet, signing on the current NU7 testnet | Real, with a trusted dealer generating the shares (see `frost/README.md`) |
+| 2-of-3 FROST custody of the launch wallet, signing on the current NU7 testnet | Real. The launches' keys came from a trusted dealer; key generation by DKG, with no dealer, is proven separately on testnet (see `frost/README.md`) |
 | Uniform-price auction, Merkle claims, relayed claims on Solana devnet | Real |
 | Public audit from the viewing key | Real |
 | Trading pool on Raydium (CPMM, devnet), LP burned | Real pool. Its SOL side is seeded by the creator, priced by the quote below |
