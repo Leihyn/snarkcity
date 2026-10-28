@@ -9,8 +9,9 @@ import { T } from './theme.js';
 
 export const BLOCK = 20, PITCH = 25, TILE = 5;
 const LINES = [-62.5, -37.5, -12.5, 12.5, 37.5, 62.5];
-// Block coordinates for launch sites, nearest the plaza first.
-export const SLOTS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [1, -1], [-1, 1]];
+// Block coordinates for launch sites, nearest the plaza first. The outer ones
+// sit at the sides of the starting view, where they hide no other launch.
+export const SLOTS = [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [1, -1], [-1, 1], [-2, 1], [1, -2], [-2, -1]];
 // Where the camera starts. Tall filler only goes on the far half of the
 // district, so nothing stands between this view and a launch.
 export const VIEW = [105, 92, 125];
