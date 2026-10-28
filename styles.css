@@ -82,7 +82,6 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
   .launches { top: auto; bottom: 12px; left: 12px; right: 12px; width: auto; max-height: 38%; }
   /* A picked launch replaces the list, so its details are what you see. */
   .launches[data-picked] { max-height: 58%; }
-  .launches[data-picked] .launch:not(.on) { display: none; }
 }
 .launches > .eyebrow { display: flex; justify-content: space-between; align-items: center; }
 .all-launches { border: 0; background: none; padding: 0; color: var(--sodium); font: inherit; text-decoration: underline; cursor: pointer; }
@@ -166,3 +165,26 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--sodium); outlin
 .snapshot-note { display: none; margin: 8px 0 0; font-size: 12px; line-height: 1.4; color: var(--sodium); max-width: 260px; }
 [data-snapshot] .snapshot-note { display: block; }
 [data-snapshot] #auditRerun { display: none; }
+
+/* The launch directory: tabs, search, sort, then a list that draws only the
+   rows in view (main.js renderList), so it scales to thousands of launches. */
+.launches { display: flex; flex-direction: column; }
+.dir-controls { display: grid; gap: 6px; }
+.dir-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.dir-tabs button { border: 1px solid var(--rule); background: none; color: var(--muted); border-radius: 999px; padding: 3px 8px; font: 11px var(--mono); cursor: pointer; }
+.dir-tabs button span { opacity: .7; }
+.dir-tabs button.on { border-color: var(--sodium); color: var(--sodium); }
+.dir-row { display: flex; gap: 6px; }
+.dir-row input, .dir-row select { min-width: 0; font: 13px var(--body); color: var(--chalk); background: var(--night); border: 1px solid var(--rule); border-radius: 8px; padding: 6px 8px; }
+.dir-row input { flex: 1; }
+.launches { overflow: hidden; }
+.launch-list { position: relative; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.launch-list-inner { position: relative; }
+.launch-row { position: absolute; left: 0; right: 0; height: 42px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--felt-2); color: var(--chalk); cursor: pointer; text-align: left; }
+.launch-row .launch-name { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.launch-row.on { border-color: var(--sodium); }
+.launch-row:focus-visible { outline: 2px solid var(--sodium); outline-offset: 1px; }
+#launchCount { color: var(--muted); }
+@media (max-width: 640px) {
+  .launches[data-picked] .dir-controls, .launches[data-picked] .launch-list { display: none; }
+}
