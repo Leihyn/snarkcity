@@ -18,8 +18,9 @@ export const VIEW = [105, 92, 125];
 
 const std = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color: new THREE.Color(color), roughness: 0.9 }, o));
 
-// `skyline: false` leaves the outer ring empty for the archive of launches.
-export function buildDistrict(slotCount, { skyline = true } = {}) {
+// `skyline: false` leaves the outer ring empty for a large archive of launches;
+// with a small one, `avoid` lists its plots so no skyline building stands on them.
+export function buildDistrict(slotCount, { skyline = true, avoid = [] } = {}) {
   const group = new THREE.Group();
   const r = rng(20261028);
   const cars = [];
@@ -52,8 +53,11 @@ export function buildDistrict(slotCount, { skyline = true } = {}) {
   const skylineModels = ['low-detail-building-a', 'low-detail-building-b', 'low-detail-building-c', 'low-detail-building-d', 'low-detail-building-e', 'low-detail-building-f', 'low-detail-building-g', 'low-detail-building-h', 'low-detail-building-wide-a', 'low-detail-building-wide-b'];
   for (let k = 0; k < (skyline ? 70 : 0); k++) {
     const ang = r() * Math.PI * 2, rad = 82 + r() * 70;
-    const b = model(skylineModels[Math.floor(r() * skylineModels.length)], 10 + r() * 8);
-    b.position.set(Math.cos(ang) * rad, 0, Math.sin(ang) * rad); b.rotation.y = Math.floor(r() * 4) * Math.PI / 2; group.add(b);
+    const x = Math.cos(ang) * rad, z = Math.sin(ang) * rad;
+    const pick = Math.floor(r() * skylineModels.length), size = 10 + r() * 8, turn = Math.floor(r() * 4);
+    if (avoid.some((p) => Math.hypot(p.x - x, p.z - z) < 11)) continue;
+    const b = model(skylineModels[pick], size);
+    b.position.set(x, 0, z); b.rotation.y = turn * Math.PI / 2; group.add(b);
   }
 
   [-37.5, -12.5, 12.5, 37.5].forEach((line, li) => {

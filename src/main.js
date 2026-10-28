@@ -393,7 +393,10 @@ async function start() {
   // stands in the archive around the district.
   const downtown = pickDowntown(index, SLOTS.length);
   await Promise.all(downtown.map((id) => (details.has(id) ? null : fetchDetails(id).catch(() => null))));
-  district = buildDistrict(downtown.length, { skyline: index.length <= downtown.length });
+  // A small archive stands among the skyline (which steps aside); a large one replaces it.
+  plots = archivePlots(index);
+  const archivedPlots = index.filter((e) => !downtown.includes(e.id)).map((e) => plots.get(e.id));
+  district = buildDistrict(downtown.length, { skyline: archivedPlots.length < 40, avoid: archivedPlots });
   scene.add(district.group);
   downtown.filter((id) => details.has(id)).forEach((id, i) => addSite(details.get(id), i));
   for (const id of downtown) if (details.has(id)) showSite(details.get(id));
