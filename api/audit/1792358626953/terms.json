@@ -1,0 +1,15 @@
+{
+  "name": "Fogcoin",
+  "kind": "memecoin",
+  "bidAddress": "utest12h4jf50qsu6avvge2m8xsnmyhcvvj5gcftj6z4z7uw2jq9wk8v8688rwy5emg0phuf9e3uhhjq4nlxsftah6eq647t44yc3ac0z37uslr2d6vh0tudyp2g533wvjy6d99jw28hcv7ce9nljw586gsjfv345wegu365cqqlztcdeg7ydehpx87wksfs3z33dhlwldkzdryge9xa6f8pz",
+  "startHeight": 4516434,
+  "endHeight": 4516439,
+  "supply": "1000000000",
+  "decimals": 6,
+  "reservePrice": "100",
+  "programId": "WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu",
+  "rpc": "https://api.devnet.solana.com",
+  "mint": "A5fuRdTSwHx7Cuzu5jeGPQ5ghM2h7Yn8UAY65AR95YbU",
+  "creator": "9CWTq92pcowQMcni2QYafQ3382eta81oRTWvDKZV8zjS",
+  "launchId": "1792358626953"
+}

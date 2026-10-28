@@ -1,0 +1,15 @@
+{
+  "name": "Hollow Labs",
+  "kind": "startup",
+  "bidAddress": "utest16dfqnk62nadryhnwhedvw7t5jvk2nsjj7mjx24mn85xttgez0vus56ql4splnhh092me89dcymz9zftmtj5c5exxwjumemjeaqhsc9sygztws0dgz8yzfy0cvtjjl9rfh83gh8j8sxmralm9ct3m97zzqjg9jamaygg8cwsrk8p47vvlynwuc6wlhugsljlt8892p665gjwgyhfyeur",
+  "startHeight": 4519139,
+  "endHeight": 4519143,
+  "supply": "500000000",
+  "decimals": 6,
+  "reservePrice": "5000",
+  "programId": "WA7VpLkfVh5HhCdfxHPosru9FEbTyUJUwUZhEkqe4Fu",
+  "rpc": "https://api.devnet.solana.com",
+  "mint": "3vK9mgsJGE33Bpi1dkmX6Wbf5SAkcS8q17n6EbnJgyio",
+  "creator": "9CWTq92pcowQMcni2QYafQ3382eta81oRTWvDKZV8zjS",
+  "launchId": "1792426080321"
+}

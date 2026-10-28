@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SnarkCity</title>
+<meta name="description" content="Sealed launches. Public prices. Token launches where bids are shielded Zcash payments and tokens are claimed on Solana.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23161D2B'/%3E%3Crect x='5' y='3' width='6' height='11' fill='%23F2B33D'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/", "uqr": "./node_modules/uqr/dist/index.mjs" } }
+</script>
+</head>
+<body>
+<div id="app">
+  <canvas id="scene" aria-label="3D city of token launches. Drag to rotate, scroll to zoom. Click a site or its label to see the launch."></canvas>
+
+  <div id="loading" class="loading" role="status">
+    <div class="loading-name">SnarkCity</div>
+    <div class="loading-bar"><span id="loadingFill"></span></div>
+    <div class="loading-note" id="loadingNote" aria-live="polite">Loading the city</div>
+    <button type="button" class="btn ghost" id="loadingRetry" hidden>Try again now</button>
+  </div>
+
+  <header class="hud brand panel">
+    <div class="brand-name">SnarkCity</div>
+    <div class="brand-line">Sealed launches. Public prices.</div>
+    <p class="snapshot-note" id="snapshotNote"></p>
+    <p class="conn-note" id="connNote" role="status" hidden></p>
+    <dl class="chain">
+      <div><dt>Zcash testnet</dt><dd id="zcashTip">…</dd></div>
+      <div><dt>Solana</dt><dd>devnet</dd></div>
+    </dl>
+    <details class="how">
+      <summary>How it works</summary>
+      <ol>
+        <li><b>Bid in fog.</b> A bid is a shielded Zcash payment. Its price is time-locked to a drand round, so nobody, the operator included, reads it before the close.</li>
+        <li><b>One price.</b> At the close the bids open and a uniform-price auction sets one price that every winner pays. Unspent ZEC is refunded.</li>
+        <li><b>Claim on Solana.</b> The tower rises with the share sold. Winners claim with their bid file, and the windows light up.</li>
+        <li><b>Check it.</b> Each launch publishes its viewing key, so anyone can re-run the auction from the chain and see every refund paid.</li>
+      </ol>
+    </details>
+  </header>
+
+  <aside class="hud launches panel" id="launches" aria-label="Launches" aria-live="polite"></aside>
+
+  <dialog id="bid" class="bid panel" aria-labelledby="bidTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow" id="bidStep">Step 1 of 3</div>
+    <h2 id="bidTitle"><span id="bidKind">Sealed bid</span> on <span id="bidName"></span></h2>
+    <p class="bid-timing" id="bidTiming" role="status"></p>
+
+    <section data-step="terms">
+      <dl class="rows bid-terms">
+        <div class="row"><dt>Reserve price</dt><dd id="bidReserve"></dd></div>
+        <div class="row"><dt>For sale</dt><dd id="bidSupply"></dd></div>
+      </dl>
+      <p class="bid-fine bid-sealed" id="bidSealed" hidden></p>
+      <form id="bidForm" autocomplete="off" novalidate>
+        <label>Highest price you will pay <small>per token</small>
+          <span class="with-unit"><input name="price" inputmode="decimal" placeholder="0.000004" required><select name="priceUnit" aria-label="Price unit"><option value="zec">ZEC</option><option value="zats">zats</option></select></span>
+          <small class="echo" id="bidEcho" aria-live="polite"></small></label>
+        <label><span id="bidAmountLabel">Amount to send</span> <small id="bidAmountHint">ZEC</small>
+          <input name="amount" inputmode="decimal" placeholder="0.002" required></label>
+        <label>Refund address <small>a fresh Zcash testnet address, used for nothing else</small>
+          <input name="refundTo" spellcheck="false" placeholder="utest1…" required></label>
+        <p class="bid-summary" id="bidSummary" aria-live="polite"></p>
+        <button type="submit" class="btn">Create bid</button>
+      </form>
+      <p class="bid-fine">Your price and refund address travel in an encrypted Zcash memo. The amount is the payment itself: the launch wallet sees it arrive, while the city and other bidders see nothing until the result is final.</p>
+      <p class="bid-fine"><button type="button" class="linkish" id="bidResume">Saved a bid file for this launch already? Pay it</button><input type="file" id="bidResumeFile" accept=".json,application/json" hidden></p>
+      <p class="bid-summary problem" id="bidResumeNote" aria-live="polite"></p>
+    </section>
+
+    <section data-step="save" hidden>
+      <p>Your browser made a claim key for this bid. Only a fingerprint of it goes in the memo:</p>
+      <code class="bid-code" id="bidCommit"></code>
+      <p>The bid file is the only copy of the key. Keep it private: you need it to claim your tokens on Solana, and anyone holding it can claim them instead.</p>
+      <button type="button" class="btn" id="bidSave">Save bid file</button>
+    </section>
+
+    <section data-step="pay" hidden>
+      <p class="bid-resumed" id="bidResumed" hidden></p>
+      <p class="pay-intro only-wide">Scan with a Zcash testnet wallet and send from your shielded balance. The code fills in the address, amount and memo.</p>
+      <p class="pay-intro only-narrow">Open the payment in your Zcash testnet wallet app and send from your shielded balance. It fills in the address, amount and memo.</p>
+      <button type="button" class="btn ghost only-narrow qr-toggle" id="bidShowQr">Show QR code for another device</button>
+      <div class="bid-qr" id="bidQr"></div>
+      <dl class="bid-fields">
+        <div><dt>To</dt><dd><code id="bidAddr"></code><button type="button" class="copy" data-copy="bidAddr">Copy</button></dd></div>
+        <div><dt>Amount</dt><dd><code id="bidAmount"></code></dd></div>
+        <div><dt>Memo</dt><dd><code id="bidMemo"></code><button type="button" class="copy" data-copy="bidMemo">Copy</button></dd></div>
+      </dl>
+      <div class="bid-actions">
+        <a class="btn" id="bidOpen" href="#">Open in wallet</a>
+        <button type="button" class="btn ghost" data-copy="uri">Copy payment link</button>
+      </div>
+      <details class="bid-fine"><summary>Paying from the command line</summary><code class="bid-code" id="bidCli"></code></details>
+      <div class="after-send">
+        <h3 class="audit-h">After you send</h3>
+        <ol class="bid-fine">
+          <li>Your wallet's sent list shows the payment. Shielded payments appear nowhere public, so your wallet is the only place to see it.</li>
+          <li id="bidLanding"></li>
+          <li>A payment mined later is refunded in full to your refund address, never lost.</li>
+          <li>After the close a receipt memo arrives at your refund address. Once the tower goes live, load this bid file in Claim: it says what you won, or that your ZEC came back.</li>
+        </ol>
+      </div>
+      <button type="button" class="btn ghost" id="bidRestart" hidden>Start a new bid instead</button>
+    </section>
+  </dialog>
+
+  <dialog id="claim" class="bid panel" aria-labelledby="claimTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow">Claim</div>
+    <h2 id="claimTitle">Claim on <span id="claimName"></span></h2>
+    <form id="claimForm" autocomplete="off" novalidate>
+      <label>Bid file <small>snarkcity-bid-….json, saved when you bid</small>
+        <input type="file" name="file" accept=".json,application/json" required></label>
+      <label>Send the tokens to <small>a Solana address, or blank for a fresh one</small>
+        <input name="recipient" spellcheck="false" placeholder="Blank: the address of the key in your bid file"></label>
+      <p class="bid-fine">After the close, anyone can match a claim to its bid: the amount, the price and the refund address, though never who paid. Claiming to your everyday wallet ties that bid to it. Left blank, the tokens go to a fresh address made from the key in your bid file, tied to nothing else until you move them.</p>
+      <p class="bid-summary" id="claimStatus" aria-live="polite"></p>
+      <button type="submit" class="btn" disabled>Claim tokens</button>
+    </form>
+    <p class="bid-fine">The relayer pays the Solana fees. Before signing, your browser checks that the transaction pays the address above, then signs with the key in your bid file. The key never leaves this page.</p>
+  </dialog>
+
+  <dialog id="audit" class="bid panel" aria-labelledby="auditTitle">
+    <form method="dialog"><button class="bid-x" aria-label="Close">&times;</button></form>
+    <div class="eyebrow">Public audit</div>
+    <h2 id="auditTitle">Check <span id="auditName"></span></h2>
+    <p class="bid-fine">Bids are private, but the result is not taken on trust. With the launch's viewing key, anyone can re-run the auction from the Zcash chain and compare it with what Solana pays out.</p>
+    <p class="audit-verdict" id="auditVerdict" role="status"></p>
+    <dl class="rows" id="auditRows"></dl>
+    <div id="auditEnvelopes" hidden>
+      <h3 class="audit-h">The opened bids</h3>
+      <p class="bid-fine">Every bid, highest price first, with what it got: won in full, partly filled at the clearing price, lost, or late. Lost and late bids get everything back. Bids are anonymous: no addresses or keys.</p>
+      <div class="envelopes-wrap"><table class="envelopes">
+        <thead><tr><th>Max price</th><th>Sent</th><th>Tokens</th><th>Refund</th><th>Outcome</th></tr></thead>
+        <tbody id="auditBids"></tbody>
+      </table></div>
+    </div>
+    <div id="auditPayouts" hidden>
+      <h3 class="audit-h">Refunds</h3>
+      <p class="bid-fine">Every refund the auction owes, found on the Zcash chain by its receipt memo. Open one to see it mined; the amount and address stay shielded.</p>
+      <div class="envelopes-wrap"><table class="envelopes">
+        <thead><tr><th>Owed</th><th>Status</th><th>Transaction</th></tr></thead>
+        <tbody id="auditPaid"></tbody>
+      </table></div>
+    </div>
+    <p class="bid-fine" id="auditWhen"></p>
+    <button type="button" class="btn ghost" id="auditRerun">Check again</button>
+    <h3 class="audit-h">Viewing key</h3>
+    <div class="bid-fields"><div><dd><code id="auditKey"></code><button type="button" class="copy" id="auditCopy">Copy</button></dd></div></div>
+    <p class="bid-fine">It shows every bid's amount, memo and refund address, and every refund paid. It never shows who sent a bid.</p>
+    <h3 class="audit-h">Run it yourself</h3>
+    <div class="bid-actions"><a class="btn ghost" id="auditTerms" href="#">Download terms</a><a class="btn ghost" id="auditKeyFile" href="#">Download viewing key</a></div>
+    <code class="bid-code" id="auditCmd"></code>
+  </dialog>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
