@@ -1,4 +1,4 @@
-# SnarkCity
+<h1><picture><source media="(prefers-color-scheme: dark)" srcset="brand/wordmark-on-dark.svg"><img src="brand/wordmark-on-light.svg" alt="SnarkCity" height="56"></picture></h1>
 
 **Sealed launches. Public prices.**
 
